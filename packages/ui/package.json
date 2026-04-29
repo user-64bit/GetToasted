@@ -1,5 +1,5 @@
 {
-  "name": "@repo/ui",
+  "name": "@get-toasted/ui",
   "version": "0.0.0",
   "private": true,
   "exports": {
@@ -7,12 +7,11 @@
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
-    "generate:component": "turbo gen react-component",
-    "check-types": "tsc --noEmit"
+    "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@get-toasted/eslint-config": "workspace:*",
+    "@get-toasted/tsconfig": "workspace:*",
     "@types/node": "^22.15.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",

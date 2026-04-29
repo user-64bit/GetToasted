@@ -1,20 +1,24 @@
 {
-  "name": "GetToasted",
+  "name": "get-toasted",
   "private": true,
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
-  },
-  "devDependencies": {
-    "prettier": "^3.7.4",
-    "turbo": "^2.9.6",
-    "typescript": "5.9.2"
-  },
   "packageManager": "pnpm@9.0.0",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "test": "turbo test",
+    "db:generate": "turbo db:generate --filter=@get-toasted/db",
+    "db:migrate": "turbo db:migrate --filter=@get-toasted/db",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "prettier": "^3.7.4",
+    "turbo": "^2.9.6",
+    "typescript": "^5.9.2"
   }
 }
