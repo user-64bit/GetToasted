@@ -9,13 +9,15 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src"
   },
   "dependencies": {
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@get-toasted/tsconfig": "workspace:*",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "@get-toasted/eslint-config": "workspace:*"
   }
 }

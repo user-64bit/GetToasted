@@ -21,6 +21,7 @@
     "@get-toasted/tsconfig": "workspace:*",
     "tsx": "^4.19.0",
     "tsup": "^8.3.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "@get-toasted/eslint-config": "workspace:*"
   }
 }

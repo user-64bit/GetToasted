@@ -10,6 +10,7 @@ if (!REDIS_URL || !DATABASE_URL) {
 }
 
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const db = createDb(DATABASE_URL);
 
 /**
