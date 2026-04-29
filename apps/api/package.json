@@ -1,0 +1,36 @@
+{
+  "name": "api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts --format esm --target node20 --clean",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@get-toasted/core": "workspace:*",
+    "@get-toasted/db": "workspace:*",
+    "@get-toasted/env": "workspace:*",
+    "@get-toasted/helius": "workspace:*",
+    "@get-toasted/schemas": "workspace:*",
+    "@hono/node-server": "^1.14.0",
+    "@hono/zod-openapi": "^0.18.0",
+    "@hono/zod-validator": "^0.4.0",
+    "@noble/curves": "^1.6.0",
+    "bs58": "^6.0.0",
+    "bullmq": "^5.40.0",
+    "hono": "^4.6.0",
+    "ioredis": "^5.4.0",
+    "jose": "^5.9.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@get-toasted/tsconfig": "workspace:*",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.2"
+  }
+}
