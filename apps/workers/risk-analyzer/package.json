@@ -1,0 +1,26 @@
+{
+  "name": "worker-risk-analyzer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts --format esm --target node20 --clean",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@get-toasted/core": "workspace:*",
+    "@get-toasted/db": "workspace:*",
+    "@get-toasted/env": "workspace:*",
+    "bullmq": "^5.40.0",
+    "ioredis": "^5.4.0"
+  },
+  "devDependencies": {
+    "@get-toasted/tsconfig": "workspace:*",
+    "tsx": "^4.19.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.2"
+  }
+}
