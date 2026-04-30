@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Pull workspace UI package files into Tailwind's content scan */
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+
 @theme {
   /* Surfaces */
   --color-bg-void: #080808;
@@ -212,6 +215,20 @@ body::before {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
 }
+
+/* Card entry animations — used by SandwichCard when isNew */
+@keyframes card-flash {
+  0% { background-color: var(--threat-red-dim); }
+  100% { background-color: var(--bg-surface); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.gt-card-flash { animation: card-flash 320ms ease-out; }
+.gt-slide-in-right { animation: slide-in-right 240ms ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
