@@ -11,6 +11,7 @@ import {
   index,
   uniqueIndex,
   bigserial,
+  smallint,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -112,3 +113,28 @@ export const apiKeys = pgTable(
   },
   (t) => [index("idx_api_keys_owner").on(t.ownerUserId)],
 );
+
+export const pools = pgTable("pools", {
+  address: text("address").primaryKey(),
+  dex: text("dex").notNull(),
+  tokenAMint: text("token_a_mint").notNull(),
+  tokenBMint: text("token_b_mint").notNull(),
+  sandwichCount24h: integer("sandwich_count_24h").default(0),
+  sandwichCount7d: integer("sandwich_count_7d").default(0),
+  riskScore: numeric("risk_score", { precision: 3, scale: 2 }),
+  lastRefreshed: timestamp("last_refreshed", { withTimezone: true }),
+});
+
+export const scanJobs = pgTable("scan_jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  wallet: text("wallet")
+    .notNull()
+    .references(() => wallets.address),
+  status: text("status").notNull(),
+  progressPct: smallint("progress_pct").default(0),
+  signaturesProcessed: integer("signatures_processed").default(0),
+  sandwichesFound: integer("sandwiches_found").default(0),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  error: text("error"),
+});

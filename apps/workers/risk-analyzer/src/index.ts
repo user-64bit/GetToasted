@@ -1,6 +1,7 @@
-import { Worker, type Job } from "bullmq";
+import { Worker, Queue } from "bullmq";
 import IORedis from "ioredis";
-import { createDb } from "@get-toasted/db";
+import { createDb, detectedSandwiches, pools } from "@get-toasted/db";
+import { gte, sql } from "drizzle-orm";
 
 const REDIS_URL = process.env.REDIS_URL;
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -10,24 +11,58 @@ if (!REDIS_URL || !DATABASE_URL) {
 }
 
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const db = createDb(DATABASE_URL);
 
-/**
- * risk-score — cron-triggered job that calculates USD loss estimates
- * for newly detected sandwiches that are missing lossUsd.
- *
- * Job data: { sandwichId: bigint } — or run as a sweep with no data.
- */
+// Schedule recurring job every hour if not already registered
+const scheduler = new Queue("risk-score", { connection });
+await scheduler.upsertJobScheduler(
+  "risk-score-hourly",
+  { every: 60 * 60 * 1000 },
+  { name: "sweep" },
+);
+
 new Worker(
   "risk-score",
-  async (job: Job<{ sandwichId?: string }>) => {
-    // TODO: query detected_sandwiches WHERE loss_usd IS NULL LIMIT 100
-    // TODO: for each, call @get-toasted/jupiter getQuote at victimInAmt
-    // TODO: compare counterfactual outAmount vs victimOutAmt → lossUsd
-    // TODO: update detected_sandwiches SET loss_usd = ..., counterfactual_out_amt = ...
-    console.log("risk-score job", job.id);
-    return { processed: 0 };
+  async () => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // Aggregate sandwich counts and avg loss per pool over last 7 days
+    const stats = await db
+      .select({
+        pool: detectedSandwiches.pool,
+        dex: detectedSandwiches.dex,
+        cnt: sql<number>`COUNT(*)::int`,
+        avgLoss: sql<string>`AVG(loss_usd)::text`,
+      })
+      .from(detectedSandwiches)
+      .where(gte(detectedSandwiches.blockTime, sevenDaysAgo))
+      .groupBy(detectedSandwiches.pool, detectedSandwiches.dex);
+
+    for (const row of stats) {
+      const riskScore = Math.min(row.cnt / 100.0, 1.0).toFixed(2);
+      await db
+        .insert(pools)
+        .values({
+          address: row.pool,
+          dex: row.dex,
+          tokenAMint: "",
+          tokenBMint: "",
+          sandwichCount7d: row.cnt,
+          riskScore,
+          lastRefreshed: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: pools.address,
+          set: {
+            sandwichCount7d: row.cnt,
+            riskScore,
+            lastRefreshed: new Date(),
+          },
+        });
+    }
+
+    console.log(`risk-analyzer: updated ${stats.length} pools`);
+    return { processed: stats.length };
   },
   { connection, concurrency: 2 },
 );
