@@ -22,16 +22,17 @@
     "@noble/curves": "^1.6.0",
     "bs58": "^6.0.0",
     "bullmq": "^5.40.0",
+    "drizzle-orm": "^0.36.0",
     "hono": "^4.6.0",
     "ioredis": "^5.4.0",
     "jose": "^5.9.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@get-toasted/eslint-config": "workspace:*",
     "@get-toasted/tsconfig": "workspace:*",
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.9.2",
-    "@get-toasted/eslint-config": "workspace:*"
+    "typescript": "^5.9.2"
   }
 }

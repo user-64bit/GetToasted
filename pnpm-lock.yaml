@@ -56,6 +56,9 @@ importers:
       bullmq:
         specifier: ^5.40.0
         version: 5.76.3
+      drizzle-orm:
+        specifier: ^0.36.0
+        version: 0.36.4(@types/react@19.2.2)(postgres@3.4.9)(react@19.2.0)
       hono:
         specifier: ^4.6.0
         version: 4.12.15

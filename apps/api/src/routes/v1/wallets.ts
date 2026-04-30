@@ -62,7 +62,7 @@ wallets.get(
     if (toDate) conditions.push(lte(detectedSandwiches.blockTime, new Date(toDate)));
     const where = and(...conditions);
 
-    const [data, [{ total }]] = await Promise.all([
+    const [data, totalResult] = await Promise.all([
       db
         .select()
         .from(detectedSandwiches)
@@ -72,6 +72,8 @@ wallets.get(
         .offset(offset),
       db.select({ total: count() }).from(detectedSandwiches).where(where),
     ]);
+
+    const total = totalResult[0]?.total ?? 0;
 
     return c.json({
       data,
