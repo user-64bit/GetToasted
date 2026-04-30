@@ -1,22 +1,36 @@
 import Link from "next/link";
-import { ScanningView } from "./_components/scanning-view";
+import { DashboardClient, type DashboardMode } from "./_components/dashboard-client";
+import { mockDashboard } from "./_components/mock-data";
 
 interface DashboardPageProps {
-  searchParams: Promise<{ wallet?: string | string[] }>;
+  searchParams: Promise<{
+    wallet?: string | string[];
+    status?: string | string[];
+    clean?: string | string[];
+  }>;
+}
+
+function firstParam(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
-  const raw = params.wallet;
-  const wallet = (Array.isArray(raw) ? raw[0] : raw)?.trim();
+  const wallet = firstParam(params.wallet)?.trim();
 
   if (!wallet) {
     return <NoWallet />;
   }
 
+  const status = firstParam(params.status);
+  const clean = firstParam(params.clean);
+
+  const initialMode: DashboardMode = status === "complete" ? "complete" : "scanning";
+  const data = mockDashboard(wallet, { force: clean ? "clean" : "auto" });
+
   return (
     <main style={{ minHeight: "100vh" }}>
-      <ScanningView wallet={wallet} />
+      <DashboardClient wallet={wallet} initialMode={initialMode} data={data} />
     </main>
   );
 }

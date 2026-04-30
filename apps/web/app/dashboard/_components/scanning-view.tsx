@@ -3,7 +3,7 @@
 import { ScanProgress } from "@get-toasted/ui/scan-progress";
 import { SandwichCard } from "@get-toasted/ui/sandwich-card";
 import type { Sandwich } from "@get-toasted/ui/types";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 const POOLS = ["Raydium", "Orca", "Meteora", "Phoenix"];
 const PAIRS = ["SOL/USDC", "BONK/SOL", "SOL/USDT", "JTO/USDC", "WIF/SOL", "PYTH/USDC"];
@@ -43,7 +43,12 @@ function shortAddress(addr: string): string {
   return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
 }
 
-export function ScanningView({ wallet }: { wallet: string }) {
+interface ScanningViewProps {
+  wallet: string;
+  onComplete?: () => void;
+}
+
+export function ScanningView({ wallet, onComplete }: ScanningViewProps) {
   const [progress, setProgress] = useState(0);
   const [transactionsAnalyzed, setTransactionsAnalyzed] = useState(0);
   const [sandwiches, setSandwiches] = useState<Sandwich[]>([]);
@@ -52,11 +57,16 @@ export function ScanningView({ wallet }: { wallet: string }) {
   const startRef = useRef(0);
   const totalTxRef = useRef(0);
   const nextDetectionAtRef = useRef(0);
+  const onCompleteRef = useRef(onComplete);
+  useLayoutEffect(() => {
+    onCompleteRef.current = onComplete;
+  });
 
   useEffect(() => {
     startRef.current = Date.now();
     totalTxRef.current = 1500 + Math.floor(Math.random() * 2000);
     nextDetectionAtRef.current = 1500 + Math.random() * 3500;
+    let completeTimeout: number | undefined;
 
     const intervalId = window.setInterval(() => {
       const elapsed = Date.now() - startRef.current;
@@ -70,13 +80,19 @@ export function ScanningView({ wallet }: { wallet: string }) {
         nextDetectionAtRef.current = elapsed + 1800 + Math.random() * 4500;
       }
 
-      if (p >= 100) window.clearInterval(intervalId);
+      if (p >= 100) {
+        window.clearInterval(intervalId);
+        completeTimeout = window.setTimeout(() => {
+          onCompleteRef.current?.();
+        }, 1500);
+      }
     }, TICK_MS);
 
-    return () => window.clearInterval(intervalId);
+    return () => {
+      window.clearInterval(intervalId);
+      if (completeTimeout !== undefined) window.clearTimeout(completeTimeout);
+    };
   }, []);
-
-  const isComplete = progress >= 100;
 
   return (
     <div className="px-6 py-24" style={{ minHeight: "100vh" }}>
@@ -98,35 +114,6 @@ export function ScanningView({ wallet }: { wallet: string }) {
                 <SandwichCard key={s.id} sandwich={s} isNew />
               ))}
             </div>
-          </div>
-        )}
-
-        {isComplete && (
-          <div
-            className="mt-16 text-center"
-            style={{
-              padding: 32,
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border-subtle)",
-              borderTop: "2px solid var(--threat-red-border)",
-              borderRadius: 8,
-            }}
-          >
-            <p className="text-label">Scan complete</p>
-            <p className="text-h2 mt-2">
-              {sandwiches.length} attacks ·{" "}
-              {transactionsAnalyzed.toLocaleString("en-US")} transactions
-            </p>
-            <p
-              className="mt-2"
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: 13,
-                color: "var(--text-secondary)",
-              }}
-            >
-              Full dashboard view (KPIs, chart, table) arrives in the next step.
-            </p>
           </div>
         )}
       </div>

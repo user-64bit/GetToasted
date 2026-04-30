@@ -310,6 +310,19 @@ body::before {
   height: 1px;
 }
 
+/* Sandwich table row hover */
+.sw-row {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 120ms ease;
+}
+.sw-row:last-child { border-bottom: none; }
+.sw-row:hover { background: var(--bg-overlay); }
+
+/* Clean-wallet checkmark draw-in */
+@keyframes draw-check {
+  to { stroke-dashoffset: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
