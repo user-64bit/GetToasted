@@ -12,9 +12,11 @@
   },
   "dependencies": {
     "@get-toasted/ui": "workspace:*",
+    "@tailwindcss/postcss": "^4",
     "next": "16.2.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "tailwindcss": "^4"
   },
   "devDependencies": {
     "@get-toasted/eslint-config": "workspace:*",

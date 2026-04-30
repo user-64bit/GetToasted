@@ -1,50 +1,222 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces */
+  --color-bg-void: #080808;
+  --color-bg-surface: #0f0f0f;
+  --color-bg-elevated: #161616;
+  --color-bg-overlay: #1c1c1c;
+
+  /* Borders */
+  --color-border-subtle: #1f1f1f;
+  --color-border-default: #2a2a2a;
+  --color-border-strong: #3a3a3a;
+
+  /* Text */
+  --color-text-primary: #f0f0f0;
+  --color-text-secondary: #888888;
+  --color-text-tertiary: #444444;
+  --color-text-inverse: #080808;
+
+  /* Threat */
+  --color-threat-red: #ff2d2d;
+  --color-threat-red-dim: #ff2d2d22;
+  --color-threat-red-border: #ff2d2d44;
+  --color-threat-amber: #ff8c00;
+  --color-threat-amber-dim: #ff8c0022;
+
+  /* Safe */
+  --color-safe-green: #00d084;
+  --color-safe-green-dim: #00d08422;
+  --color-safe-green-border: #00d08444;
+
+  /* Accent */
+  --color-accent: #4f7fff;
+  --color-accent-dim: #4f7fff22;
+
+  /* Chart */
+  --color-chart-line: #4f7fff;
+  --color-chart-fill: #4f7fff15;
+  --color-chart-grid: #1a1a1a;
+
+  /* Fonts */
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Spec tokens — also exposed at :root for direct CSS use (non-color names) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-void: #080808;
+  --bg-surface: #0f0f0f;
+  --bg-elevated: #161616;
+  --bg-overlay: #1c1c1c;
+
+  --border-subtle: #1f1f1f;
+  --border-default: #2a2a2a;
+  --border-strong: #3a3a3a;
+
+  --text-primary: #f0f0f0;
+  --text-secondary: #888888;
+  --text-tertiary: #444444;
+  --text-inverse: #080808;
+
+  --threat-red: #ff2d2d;
+  --threat-red-dim: #ff2d2d22;
+  --threat-red-border: #ff2d2d44;
+  --threat-amber: #ff8c00;
+  --threat-amber-dim: #ff8c0022;
+
+  --safe-green: #00d084;
+  --safe-green-dim: #00d08422;
+  --safe-green-border: #00d08444;
+
+  --accent: #4f7fff;
+  --accent-dim: #4f7fff22;
+
+  --chart-line: #4f7fff;
+  --chart-fill: #4f7fff15;
+  --chart-grid: #1a1a1a;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Reset */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; }
+
+html {
+  color-scheme: dark;
+  background: var(--bg-void);
 }
 
-html,
 body {
-  max-width: 100vw;
-  overflow-x: hidden;
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+input, textarea { font: inherit; color: inherit; background: none; border: none; outline: none; }
+
+/* Typography utility classes */
+.text-display {
+  font-family: var(--font-mono);
+  font-size: clamp(36px, 5vw, 72px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+.text-h1 {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.text-h2 {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 500;
+}
+.text-h3 {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 500;
+}
+.text-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.text-body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+.text-body-sm {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.text-mono {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+.text-mono-lg {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+/* Scanline overlay — fixed across the whole viewport */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* Selection */
+::selection {
+  background: var(--threat-red-dim);
+  color: var(--threat-red);
 }
 
-.imgDark {
-  display: none;
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-void); }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+/* Foundational keyframes — used by the component library and pages */
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(4px);
   }
-
-  .imgLight {
-    display: none;
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
   }
-  .imgDark {
-    display: unset;
+}
+
+@keyframes threat-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--threat-red-dim);
+    background: var(--threat-red);
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+    background: #ff6060;
+  }
+}
+
+@keyframes terminal-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
