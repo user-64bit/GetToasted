@@ -6,7 +6,7 @@ import { scanJobs } from "@get-toasted/db";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import IORedis from "ioredis";
-import { db, redis } from "../../lib/connections.js";
+import { db } from "../../lib/connections.js";
 import { serverEnv } from "@get-toasted/env";
 
 export const stream = new Hono();

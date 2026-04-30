@@ -15,13 +15,14 @@
     "@get-toasted/db": "workspace:*",
     "@get-toasted/env": "workspace:*",
     "bullmq": "^5.40.0",
+    "drizzle-orm": "^0.36.0",
     "ioredis": "^5.4.0"
   },
   "devDependencies": {
+    "@get-toasted/eslint-config": "workspace:*",
     "@get-toasted/tsconfig": "workspace:*",
-    "tsx": "^4.19.0",
     "tsup": "^8.3.0",
-    "typescript": "^5.9.2",
-    "@get-toasted/eslint-config": "workspace:*"
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.2"
   }
 }
