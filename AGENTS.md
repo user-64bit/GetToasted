@@ -1,4 +1,4 @@
-# Get Toasted (MEV Shield) — Project Context for Codex
+# Get Toasted (GetToasted) — Project Context for Codex
 
 ## What this is
 
@@ -7,7 +7,7 @@ Hackathon timeline: 5 weeks. Solo dev.
 
 ## Branding
 
-- **Product name**: Get Toasted / MEV Shield (used interchangeably)
+- **Product name**: Get Toasted / GetToasted (used interchangeably)
 - **Package scope**: `@get-toasted/*` (NOT `@mev-shield/*`)
 
 ## Architecture

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "=== MEV Shield Deploy ==="
+echo "=== GetToasted Deploy ==="
 
 # Pull latest
 git pull origin main

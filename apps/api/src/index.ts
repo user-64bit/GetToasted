@@ -77,7 +77,7 @@ async function start() {
 
   const port = serverEnv.PORT;
   const server = serve({ fetch: app.fetch, port });
-  console.log(`MEV Shield API running on port ${port}`);
+  console.log(`GetToasted API running on port ${port}`);
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
