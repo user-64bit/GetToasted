@@ -1,0 +1,85 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
+
+export function TerminalScanInput() {
+  const router = useRouter();
+  const [value, setValue] = useState("");
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    router.push(`/dashboard?wallet=${encodeURIComponent(trimmed)}`);
+  };
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="terminal-input flex items-center"
+      style={{ paddingLeft: 16, paddingRight: 6, paddingTop: 6, paddingBottom: 6, maxWidth: 640 }}
+    >
+      <span
+        aria-hidden
+        style={{
+          fontFamily: "var(--font-mono)",
+          color: "var(--safe-green)",
+          fontSize: 16,
+          marginRight: 12,
+        }}
+      >
+        {">"}
+      </span>
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Paste wallet address or connect"
+        spellCheck={false}
+        autoCapitalize="off"
+        autoCorrect="off"
+        autoComplete="off"
+        className="flex-1 min-w-0"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 15,
+          background: "transparent",
+          color: "var(--text-primary)",
+          padding: "10px 0",
+        }}
+        aria-label="Solana wallet address"
+      />
+      {value.length === 0 && (
+        <span
+          aria-hidden
+          className="hidden sm:inline"
+          style={{
+            fontFamily: "var(--font-mono)",
+            color: "var(--safe-green)",
+            fontSize: 14,
+            marginRight: 12,
+            animation: "terminal-blink 1.1s steps(2, start) infinite",
+          }}
+        >
+          ▍
+        </span>
+      )}
+      <button
+        type="submit"
+        className="transition-transform hover:-translate-y-px"
+        style={{
+          background: "var(--threat-red)",
+          color: "var(--text-primary)",
+          padding: "10px 18px",
+          borderRadius: 4,
+          fontFamily: "var(--font-mono)",
+          fontSize: 12,
+          fontWeight: 500,
+          letterSpacing: "0.18em",
+        }}
+      >
+        SCAN
+      </button>
+    </form>
+  );
+}

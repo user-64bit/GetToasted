@@ -1,88 +1,78 @@
-import { AttackerAddress } from "@get-toasted/ui/attacker-address";
-import { MonoNumber } from "@get-toasted/ui/mono-number";
-import { RiskMeter } from "@get-toasted/ui/risk-meter";
-import { SandwichCard } from "@get-toasted/ui/sandwich-card";
-import { ScanProgress } from "@get-toasted/ui/scan-progress";
-import { ThreatBadge } from "@get-toasted/ui/threat-badge";
-
-const sample = {
-  id: "1",
-  detectedAt: new Date("2026-02-12T15:32:00Z"),
-  pool: "Raydium",
-  pair: "SOL/USDC",
-  lossUsd: 142.2,
-  attacker: "9973huxmxR8sTxjZTvkLF7eDzVZNMvz5fG7QsRpwzWp6",
-  txSignature: "5xY3...mQ91",
-  slot: 301827491,
-};
+import { CommandBar } from "./_components/command-bar";
+import { CtaFooter } from "./_components/cta-footer";
+import { FloatingStats } from "./_components/floating-stats";
+import { HowItWorks } from "./_components/how-it-works";
+import { SampleScan } from "./_components/sample-scan";
+import { TerminalScanInput } from "./_components/terminal-scan-input";
+import { Ticker } from "./_components/ticker";
 
 export default function Home() {
   return (
-    <main className="min-h-screen px-8 py-16">
-      <div className="max-w-3xl mx-auto">
-        <p className="text-label">Foundation preview · step 3</p>
-        <h1 className="text-h1 mt-2">
-          Get<span style={{ color: "var(--threat-red)" }}>Toasted</span>{" "}
-          component library
-        </h1>
-
-        <Section title="Threat badges">
-          <div className="flex gap-2 flex-wrap">
-            <ThreatBadge level="high" />
-            <ThreatBadge level="medium" />
-            <ThreatBadge level="low" />
-            <ThreatBadge level="none" />
-          </div>
-        </Section>
-
-        <Section title="Mono number (animated counter)">
-          <span className="text-mono-lg">
-            <MonoNumber value={247.83} prefix="$" color="threat" animated />
-          </span>
-        </Section>
-
-        <Section title="Attacker address (click to copy)">
-          <AttackerAddress address="9973huxmxR8sTxjZTvkLF7eDzVZNMvz5fG7QsRpwzWp6" />
-        </Section>
-
-        <Section title="Risk meter">
-          <RiskMeter score={0.82} label="Risk score" />
-        </Section>
-
-        <Section title="Scan progress">
-          <ScanProgress
-            progress={47}
-            sandwichesFound={3}
-            transactionsAnalyzed={1247}
-            walletAddress="9fKL...3nRq"
-          />
-        </Section>
-
-        <Section title="Sandwich card (new)">
-          <SandwichCard sandwich={sample} isNew />
-        </Section>
-      </div>
-    </main>
+    <>
+      <CommandBar />
+      <main>
+        <Hero />
+        <Ticker />
+        <HowItWorks />
+        <SampleScan />
+        <CtaFooter />
+      </main>
+    </>
   );
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Hero() {
   return (
     <section
-      className="mt-12"
+      className="hero-grid relative overflow-hidden"
       style={{
-        paddingTop: 24,
-        borderTop: "1px solid var(--border-subtle)",
+        minHeight: "100svh",
+        paddingTop: 120,
+        paddingBottom: 96,
+        paddingLeft: 24,
+        paddingRight: 24,
       }}
     >
-      <p className="text-label mb-4">{title}</p>
-      {children}
+      <FloatingStats />
+      <div className="reveal-stagger relative max-w-3xl mx-auto" style={{ marginTop: 56 }}>
+        <p className="text-label">Forensic intelligence · Solana MEV</p>
+
+        <h1 className="text-display mt-4" style={{ maxWidth: 720 }}>
+          Every sandwich attack on your wallet.{" "}
+          <span style={{ color: "var(--threat-red)" }}>Exposed.</span>
+        </h1>
+
+        <p
+          className="mt-6"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: 18,
+            color: "var(--text-secondary)",
+            lineHeight: 1.55,
+            maxWidth: 520,
+          }}
+        >
+          Solana MEV extraction has cost traders $500M+. Find out what was
+          stolen from you.
+        </p>
+
+        <div className="mt-10">
+          <TerminalScanInput />
+        </div>
+
+        <p
+          className="mt-4"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--text-tertiary)",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+          }}
+        >
+          Free · No signup · Read-only
+        </p>
+      </div>
     </section>
   );
 }
