@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { setCookie, deleteCookie } from "hono/cookie";
+import { setCookie, deleteCookie, getCookie } from "hono/cookie";
 import { ed25519 } from "@noble/curves/ed25519";
-import { SignJWT } from "jose";
+import { SignJWT, jwtVerify } from "jose";
 import bs58 from "bs58";
 import { z } from "zod";
 import { serverEnv } from "@get-toasted/env";
@@ -67,4 +67,24 @@ auth.post("/verify", zValidator("json", VerifySchema), async (c) => {
 auth.post("/logout", (c) => {
   deleteCookie(c, "mev_token", { path: "/" });
   return c.json({ success: true });
+});
+
+// GET /api/auth/me — non-failing session introspection
+auth.get("/me", async (c) => {
+  const token = getCookie(c, "mev_token");
+  if (!token) return c.json({ authenticated: false });
+  try {
+    const secret = new TextEncoder().encode(serverEnv.JWT_SECRET);
+    const { payload } = await jwtVerify(token, secret);
+    return c.json({
+      authenticated: true,
+      address: payload.sub as string,
+      expiresAt:
+        typeof payload.exp === "number"
+          ? new Date(payload.exp * 1000).toISOString()
+          : null,
+    });
+  } catch {
+    return c.json({ authenticated: false });
+  }
 });
