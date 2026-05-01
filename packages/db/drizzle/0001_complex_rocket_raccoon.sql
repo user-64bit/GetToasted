@@ -14,12 +14,14 @@ ALTER TABLE "pools" ALTER COLUMN "token_a_mint" DROP NOT NULL;--> statement-brea
 ALTER TABLE "pools" ALTER COLUMN "token_b_mint" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "pools" ALTER COLUMN "sandwich_count_24h" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "pools" ALTER COLUMN "sandwich_count_7d" SET NOT NULL;--> statement-breakpoint
-ALTER TABLE "scan_jobs" ALTER COLUMN "status" SET DATA TYPE scan_job_status;--> statement-breakpoint
+ALTER TABLE "scan_jobs" ALTER COLUMN "status" SET DATA TYPE scan_job_status USING "status"::scan_job_status;--> statement-breakpoint
 ALTER TABLE "scan_jobs" ALTER COLUMN "status" SET DEFAULT 'pending';--> statement-breakpoint
 ALTER TABLE "scan_jobs" ALTER COLUMN "progress_pct" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "scan_jobs" ALTER COLUMN "signatures_processed" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "scan_jobs" ALTER COLUMN "sandwiches_found" SET NOT NULL;--> statement-breakpoint
-ALTER TABLE "wallets" ALTER COLUMN "scan_status" SET DATA TYPE scan_status;--> statement-breakpoint
+ALTER TABLE "wallets" ALTER COLUMN "scan_status" DROP DEFAULT;--> statement-breakpoint
+ALTER TABLE "wallets" ALTER COLUMN "scan_status" SET DATA TYPE scan_status USING "scan_status"::scan_status;--> statement-breakpoint
+ALTER TABLE "wallets" ALTER COLUMN "scan_status" SET DEFAULT 'pending';--> statement-breakpoint
 ALTER TABLE "wallets" ALTER COLUMN "total_tx_count" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "wallets" ALTER COLUMN "total_loss_usd" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "api_keys" ADD COLUMN "key_prefix" text NOT NULL;--> statement-breakpoint

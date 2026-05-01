@@ -1,5 +1,33 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
+
+// Walk up from cwd looking for a .env file and populate process.env with any
+// keys that aren't already set. Lets every workspace (api, workers, …) share
+// the repo-root .env without per-package --env-file wiring. Next.js loads its
+// own .env files, so this is a no-op for web/docs.
+function loadDotenvFromAncestors(): void {
+  let dir = process.cwd();
+  for (let i = 0; i < 8; i++) {
+    try {
+      const text = readFileSync(resolve(dir, ".env"), "utf8");
+      for (const line of text.split("\n")) {
+        const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/i);
+        if (!m) continue;
+        const [, key, raw] = m;
+        if (process.env[key] !== undefined) continue;
+        process.env[key] = raw.replace(/^["']|["']$/g, "");
+      }
+      return;
+    } catch {
+      const parent = dirname(dir);
+      if (parent === dir) return;
+      dir = parent;
+    }
+  }
+}
+loadDotenvFromAncestors();
 
 export const serverEnv = createEnv({
   server: {

@@ -21,7 +21,7 @@ export async function recomputePoolRiskScores(db: DbExecutor): Promise<number> {
       pool: detectedSandwiches.pool,
       dex: detectedSandwiches.dex,
       cnt7d: sql<number>`COUNT(*)::int`,
-      cnt24h: sql<number>`SUM(CASE WHEN ${detectedSandwiches.blockTime} >= ${oneDayAgo} THEN 1 ELSE 0 END)::int`,
+      cnt24h: sql<number>`SUM(CASE WHEN ${detectedSandwiches.blockTime} >= ${oneDayAgo.toISOString()} THEN 1 ELSE 0 END)::int`,
       avgLoss: sql<string | null>`AVG(${detectedSandwiches.lossUsd})::text`,
       sumLoss: sql<string | null>`COALESCE(SUM(${detectedSandwiches.lossUsd}), 0)::text`,
     })
