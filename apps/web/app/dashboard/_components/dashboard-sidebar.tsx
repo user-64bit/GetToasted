@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DisconnectButton } from "./disconnect-button";
 
 interface DashboardSidebarProps {
   wallet: string;
@@ -55,17 +56,7 @@ export function DashboardSidebar({ wallet }: DashboardSidebarProps) {
         >
           {truncated}
         </p>
-        <Link
-          href="/"
-          className="inline-block mt-3 transition-colors"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 12,
-            color: "var(--text-secondary)",
-          }}
-        >
-          Disconnect <span aria-hidden>↗</span>
-        </Link>
+        <DisconnectButton />
       </div>
     </aside>
   );
