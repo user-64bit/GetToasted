@@ -43,8 +43,11 @@ export async function recomputeValidatorSandwichStats(db: DbExecutor): Promise<n
       GROUP BY validator_vote
     ) s
     WHERE v.vote_account = s.validator_vote
+    RETURNING v.vote_account
   `);
-  return Number((result as unknown as { count?: number }).count ?? 0);
+  if (Array.isArray(result)) return result.length;
+  const meta = result as { count?: number; rowCount?: number; length?: number };
+  return Number(meta.count ?? meta.rowCount ?? meta.length ?? 0);
 }
 
 export type ValidatorLeaderboardSort = "sandwiches" | "extracted_usd" | "sandwich_rate";
