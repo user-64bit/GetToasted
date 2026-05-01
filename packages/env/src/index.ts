@@ -16,6 +16,7 @@ function loadDotenvFromAncestors(): void {
         const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/i);
         if (!m) continue;
         const [, key, raw] = m;
+        if (!key || raw === undefined) continue;
         if (process.env[key] !== undefined) continue;
         process.env[key] = raw.replace(/^["']|["']$/g, "");
       }
