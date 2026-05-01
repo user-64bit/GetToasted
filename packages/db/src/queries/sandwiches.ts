@@ -252,6 +252,10 @@ export async function getDailySandwichCountsForValidator(
 export async function deleteAlertsBefore(
   db: DbExecutor,
   before: Date,
-): Promise<void> {
-  await db.delete(alerts).where(lt(alerts.createdAt, before));
+): Promise<number> {
+  const deleted = await db
+    .delete(alerts)
+    .where(lt(alerts.createdAt, before))
+    .returning({ id: alerts.id });
+  return deleted.length;
 }
