@@ -15,7 +15,7 @@ export function CompleteView({ wallet, data }: CompleteViewProps) {
     wallet.length > 10 ? `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : wallet;
 
   return (
-    <div className="md:pl-60" style={{ minHeight: "100vh" }}>
+    <div className="dashboard-main" style={{ minHeight: "100vh" }}>
       <DashboardSidebar wallet={wallet} />
 
       {data.attacksFound === 0 ? (

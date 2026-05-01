@@ -139,6 +139,7 @@ export function SandwichTable({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Search attacks"
+          className="gt-input"
           style={{
             background: "var(--bg-overlay)",
             border: "1px solid var(--border-default)",
@@ -154,6 +155,7 @@ export function SandwichTable({
         <button
           type="button"
           onClick={exportCsv}
+          className="gt-btn-secondary"
           style={{
             background: "var(--bg-overlay)",
             border: "1px solid var(--border-default)",
@@ -296,6 +298,7 @@ function Select({ value, onChange, options }: SelectProps) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      className="gt-input"
       style={{
         background: "var(--bg-overlay)",
         border: "1px solid var(--border-default)",

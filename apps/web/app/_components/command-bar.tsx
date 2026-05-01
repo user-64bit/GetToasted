@@ -2,22 +2,7 @@ import Link from "next/link";
 
 export function CommandBar() {
   return (
-    <nav
-      className="fixed left-1/2 -translate-x-1/2 z-50 flex items-center"
-      style={{
-        top: 24,
-        background: "color-mix(in srgb, var(--bg-surface) 75%, transparent)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        border: "1px solid var(--border-default)",
-        borderRadius: 12,
-        padding: "8px 8px 8px 20px",
-        gap: 24,
-        minWidth: 600,
-        maxWidth: "calc(100vw - 32px)",
-        width: "fit-content",
-      }}
-    >
+    <nav className="command-bar fixed z-50 flex items-center">
       <Link
         href="/"
         className="flex items-center"
@@ -32,11 +17,11 @@ export function CommandBar() {
       </Link>
 
       <div className="ml-auto flex items-center gap-1">
-        <NavLink href="/docs">Docs</NavLink>
-        <NavLink href="#">GitHub</NavLink>
+        <NavLink href="/docs" className="hidden md:block">Docs</NavLink>
+        <NavLink href="#" className="hidden md:block">GitHub</NavLink>
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-1.5 transition-transform hover:-translate-y-px"
+          className="gt-btn inline-flex items-center gap-1.5"
           style={{
             background: "var(--accent)",
             color: "var(--text-inverse)",
@@ -58,14 +43,16 @@ export function CommandBar() {
 function NavLink({
   href,
   children,
+  className,
 }: {
   href: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
     <Link
       href={href}
-      className="transition-colors"
+      className={`nav-link ${className ?? ""}`}
       style={{
         fontFamily: "var(--font-mono)",
         fontSize: 13,

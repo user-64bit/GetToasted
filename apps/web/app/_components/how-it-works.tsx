@@ -23,14 +23,14 @@ export function HowItWorks() {
     <section
       style={{ padding: "128px 24px", borderTop: "1px solid var(--border-subtle)" }}
     >
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto text-center">
         <p className="text-label">How it works</p>
-        <h2 className="text-h1 mt-3" style={{ maxWidth: 520 }}>
+        <h2 className="text-h1 mt-3 mx-auto" style={{ maxWidth: 520 }}>
           Three steps. No theatrics.
         </h2>
 
         <Reveal threshold={0.15} className="mt-16">
-          <div className="grid gap-12 md:grid-cols-3 md:gap-8 relative">
+          <div className="grid gap-12 md:grid-cols-3 md:gap-8 relative text-left">
             {steps.map((s, i) => (
               <div key={s.n} className="relative">
                 <div

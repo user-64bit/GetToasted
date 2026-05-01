@@ -54,7 +54,7 @@ function NoWallet() {
         </p>
         <Link
           href="/"
-          className="inline-flex items-center mt-8 transition-transform hover:-translate-y-px"
+          className="inline-flex items-center mt-8 gt-btn"
           style={{
             background: "var(--accent)",
             color: "var(--text-inverse)",

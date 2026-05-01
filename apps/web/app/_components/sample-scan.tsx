@@ -21,13 +21,13 @@ export function SampleScan() {
     <section
       style={{ padding: "96px 24px", borderTop: "1px solid var(--border-subtle)" }}
     >
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl mx-auto text-center">
         <p className="text-label">A taste · sample scan</p>
-        <h2 className="text-h1 mt-3" style={{ maxWidth: 520 }}>
+        <h2 className="text-h1 mt-3 mx-auto" style={{ maxWidth: 520 }}>
           Here&apos;s what your dashboard could look like.
         </h2>
 
-        <Reveal threshold={0.25} className="mt-12">
+        <Reveal threshold={0.25} className="mt-12 text-left">
           <article
             style={{
               background: "var(--bg-surface)",
@@ -120,7 +120,9 @@ export function SampleScan() {
                 </div>
                 <a
                   href="#"
-                  className="inline-flex items-center mt-3"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center mt-3 nav-link"
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 12,

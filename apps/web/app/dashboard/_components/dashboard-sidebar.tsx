@@ -81,7 +81,7 @@ function NavItem({
   return (
     <Link
       href={href}
-      className="block transition-colors"
+      className="block nav-link"
       style={{
         fontFamily: "var(--font-mono)",
         fontSize: 13,

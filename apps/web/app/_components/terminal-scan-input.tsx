@@ -17,8 +17,8 @@ export function TerminalScanInput() {
   return (
     <form
       onSubmit={onSubmit}
-      className="terminal-input flex items-center"
-      style={{ paddingLeft: 16, paddingRight: 6, paddingTop: 6, paddingBottom: 6, maxWidth: 640 }}
+      className="terminal-input flex items-center w-full"
+      style={{ paddingLeft: 16, paddingRight: 6, paddingTop: 6, paddingBottom: 6 }}
     >
       <span
         aria-hidden
@@ -66,7 +66,8 @@ export function TerminalScanInput() {
       )}
       <button
         type="submit"
-        className="transition-transform hover:-translate-y-px"
+        disabled={value.trim().length === 0}
+        className="gt-btn"
         style={{
           background: "var(--threat-red)",
           color: "var(--text-primary)",

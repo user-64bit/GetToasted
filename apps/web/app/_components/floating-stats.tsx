@@ -10,9 +10,9 @@ type Stat = {
 const stats: Stat[] = [
   {
     text: "$500M+ extracted from Solana traders",
-    top: "18%",
-    left: "6%",
-    rotate: -3,
+    top: "12%",
+    right: "8%",
+    rotate: 2,
     hideBelow: "lg",
   },
   {
@@ -25,7 +25,7 @@ const stats: Stat[] = [
   {
     text: "801,540 SOL profit per year — one operator",
     top: "78%",
-    left: "10%",
+    left: "8%",
     rotate: -2,
     hideBelow: "lg",
   },

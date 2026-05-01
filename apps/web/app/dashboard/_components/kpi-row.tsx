@@ -73,7 +73,7 @@ function Kpi({
         background: "var(--bg-surface)",
         border: "1px solid var(--border-subtle)",
         borderRadius: 8,
-        padding: 20,
+        padding: 24,
       }}
     >
       <p className="text-label">{label}</p>

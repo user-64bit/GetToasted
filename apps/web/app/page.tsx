@@ -34,7 +34,7 @@ function Hero() {
       }}
     >
       <FloatingStats />
-      <div className="reveal-stagger relative max-w-3xl mx-auto" style={{ marginTop: 56 }}>
+      <div className="reveal-stagger relative max-w-3xl mx-auto flex flex-col items-center text-center" style={{ marginTop: 56 }}>
         <p className="text-label">Forensic intelligence · Solana MEV</p>
 
         <h1 className="text-display mt-4" style={{ maxWidth: 720 }}>
@@ -56,7 +56,7 @@ function Hero() {
           stolen from you.
         </p>
 
-        <div className="mt-10">
+        <div className="mt-10 w-full" style={{ maxWidth: 640 }}>
           <TerminalScanInput />
         </div>
 

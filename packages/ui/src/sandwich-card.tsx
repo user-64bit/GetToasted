@@ -49,7 +49,7 @@ export function SandwichCard({
     >
       {showNewBadge && (
         <span
-          className="absolute inline-flex items-center gap-1.5"
+          className="absolute inline-flex items-center gap-1.5 gt-badge-fade"
           style={{
             top: 16,
             right: 20,

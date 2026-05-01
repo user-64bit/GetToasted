@@ -95,8 +95,8 @@ export function ScanningView({ wallet, onComplete }: ScanningViewProps) {
   }, []);
 
   return (
-    <div className="px-6 py-24" style={{ minHeight: "100vh" }}>
-      <div className="max-w-3xl mx-auto">
+    <div className="flex items-center justify-center px-6" style={{ minHeight: "100vh" }}>
+      <div className="max-w-3xl mx-auto w-full">
         <ScanProgress
           progress={progress}
           sandwichesFound={sandwiches.length}

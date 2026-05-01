@@ -73,6 +73,7 @@ export function CleanWallet({ transactionsAnalyzed }: CleanWalletProps) {
         <div className="flex flex-wrap gap-3 justify-center mt-10">
           <button
             type="button"
+            className="gt-btn-secondary"
             style={{
               background: "var(--bg-surface)",
               border: "1px solid var(--border-default)",
@@ -89,6 +90,7 @@ export function CleanWallet({ transactionsAnalyzed }: CleanWalletProps) {
           </button>
           <Link
             href="/"
+            className="gt-btn"
             style={{
               background: "var(--safe-green)",
               color: "var(--text-inverse)",

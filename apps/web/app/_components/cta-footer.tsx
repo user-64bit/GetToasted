@@ -37,7 +37,7 @@ export function CtaFooter() {
 
         <Link
           href="/dashboard"
-          className="inline-flex items-center mt-12 transition-transform hover:-translate-y-0.5"
+          className="inline-flex items-center mt-12 gt-btn"
           style={{
             background: "var(--accent)",
             color: "var(--text-inverse)",
