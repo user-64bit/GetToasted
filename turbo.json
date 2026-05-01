@@ -21,7 +21,8 @@
         "JWT_SECRET",
         "CORS_ORIGIN",
         "SIWS_DOMAIN",
-        "VALIDATORS_APP_TOKEN"
+        "VALIDATORS_APP_TOKEN",
+        "LOG_LEVEL"
       ],
       "outputs": [
         ".next/**",
