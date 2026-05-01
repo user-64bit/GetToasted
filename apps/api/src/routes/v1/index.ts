@@ -6,6 +6,7 @@ import { stream } from "./stream.js";
 import { validatorsRoute } from "./validators.js";
 import { sandwiches } from "./sandwiches.js";
 import { stats } from "./stats.js";
+import { apiKeysRoute } from "./apiKeys.js";
 
 export const v1 = new Hono()
   .route("/health", health)
@@ -14,4 +15,5 @@ export const v1 = new Hono()
   .route("/simulate", simulate)
   .route("/stream", stream)
   .route("/validators", validatorsRoute)
-  .route("/stats", stats);
+  .route("/stats", stats)
+  .route("/api-keys", apiKeysRoute);
