@@ -10,6 +10,14 @@ function timeout<T>(ms: number, label: string): Promise<T> {
   );
 }
 
+health.get("/", (c) =>
+  c.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  }),
+);
+
 health.get("/db", async (c) => {
   const checks = await Promise.allSettled([
     Promise.race([db.execute(sql`SELECT 1`), timeout(3000, "db")]),
