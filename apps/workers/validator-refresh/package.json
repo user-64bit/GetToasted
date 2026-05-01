@@ -14,6 +14,8 @@
     "@get-toasted/core": "workspace:*",
     "@get-toasted/db": "workspace:*",
     "@get-toasted/env": "workspace:*",
+    "@get-toasted/helius": "workspace:*",
+    "@get-toasted/runtime": "workspace:*",
     "bullmq": "^5.40.0",
     "drizzle-orm": "^0.36.0",
     "ioredis": "^5.4.0"

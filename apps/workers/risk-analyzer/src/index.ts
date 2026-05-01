@@ -1,19 +1,17 @@
 import { Worker, Queue } from "bullmq";
 import IORedis from "ioredis";
-import { createDb, detectedSandwiches, pools } from "@get-toasted/db";
-import { gte, sql } from "drizzle-orm";
+import { serverEnv } from "@get-toasted/env";
+import { createDb, Pools, Validators } from "@get-toasted/db";
+import { createLogger } from "@get-toasted/runtime";
 
-const REDIS_URL = process.env.REDIS_URL;
-const DATABASE_URL = process.env.DATABASE_URL;
+const log = createLogger({ worker: "risk-analyzer" });
 
-if (!REDIS_URL || !DATABASE_URL) {
-  throw new Error("Missing required env vars: REDIS_URL, DATABASE_URL");
-}
+const connection = new IORedis(serverEnv.REDIS_URL, {
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false,
+});
+const db = createDb(serverEnv.DATABASE_URL);
 
-const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
-const db = createDb(DATABASE_URL);
-
-// Schedule recurring job every hour if not already registered
 const scheduler = new Queue("risk-score", { connection });
 await scheduler.upsertJobScheduler(
   "risk-score-hourly",
@@ -21,50 +19,38 @@ await scheduler.upsertJobScheduler(
   { name: "sweep" },
 );
 
-new Worker(
+const worker = new Worker(
   "risk-score",
   async () => {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-    // Aggregate sandwich counts and avg loss per pool over last 7 days
-    const stats = await db
-      .select({
-        pool: detectedSandwiches.pool,
-        dex: detectedSandwiches.dex,
-        cnt: sql<number>`COUNT(*)::int`,
-        avgLoss: sql<string>`AVG(loss_usd)::text`,
-      })
-      .from(detectedSandwiches)
-      .where(gte(detectedSandwiches.blockTime, sevenDaysAgo))
-      .groupBy(detectedSandwiches.pool, detectedSandwiches.dex);
-
-    for (const row of stats) {
-      const riskScore = Math.min(row.cnt / 100.0, 1.0).toFixed(2);
-      await db
-        .insert(pools)
-        .values({
-          address: row.pool,
-          dex: row.dex,
-          tokenAMint: "",
-          tokenBMint: "",
-          sandwichCount7d: row.cnt,
-          riskScore,
-          lastRefreshed: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: pools.address,
-          set: {
-            sandwichCount7d: row.cnt,
-            riskScore,
-            lastRefreshed: new Date(),
-          },
-        });
-    }
-
-    console.log(`risk-analyzer: updated ${stats.length} pools`);
-    return { processed: stats.length };
+    const startedAt = Date.now();
+    const poolsTouched = await Pools.recomputePoolRiskScores(db);
+    const validatorsTouched = await Validators.recomputeValidatorSandwichStats(db);
+    log.info(
+      {
+        poolsTouched,
+        validatorsTouched,
+        durationMs: Date.now() - startedAt,
+      },
+      "risk-analyzer: sweep complete",
+    );
+    return { poolsTouched, validatorsTouched };
   },
-  { connection, concurrency: 2 },
+  { connection, concurrency: 1 },
 );
 
-console.log("risk-analyzer worker up — consuming queue: risk-score");
+worker.on("ready", () => log.info("risk-analyzer: ready"));
+worker.on("failed", (job, err) =>
+  log.error({ jobId: job?.id, err }, "risk-analyzer: job failed"),
+);
+
+const shutdown = async (signal: string) => {
+  log.info({ signal }, "risk-analyzer: shutting down");
+  await worker.close();
+  await scheduler.close();
+  connection.disconnect();
+  process.exit(0);
+};
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
+
+log.info("risk-analyzer: worker up — queue: risk-score");

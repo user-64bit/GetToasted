@@ -185,9 +185,15 @@ importers:
       '@get-toasted/helius':
         specifier: workspace:*
         version: link:../../../packages/helius
+      '@get-toasted/runtime':
+        specifier: workspace:*
+        version: link:../../../packages/runtime
       bullmq:
         specifier: ^5.40.0
         version: 5.76.3
+      drizzle-orm:
+        specifier: ^0.36.0
+        version: 0.36.4(@types/react@19.2.2)(postgres@3.4.9)(react@19.2.0)
       ioredis:
         specifier: ^5.4.0
         version: 5.10.1
@@ -219,6 +225,9 @@ importers:
       '@get-toasted/env':
         specifier: workspace:*
         version: link:../../../packages/env
+      '@get-toasted/runtime':
+        specifier: workspace:*
+        version: link:../../../packages/runtime
       bullmq:
         specifier: ^5.40.0
         version: 5.76.3
@@ -259,6 +268,9 @@ importers:
       '@get-toasted/helius':
         specifier: workspace:*
         version: link:../../../packages/helius
+      '@get-toasted/runtime':
+        specifier: workspace:*
+        version: link:../../../packages/runtime
       bullmq:
         specifier: ^5.40.0
         version: 5.76.3
@@ -296,6 +308,12 @@ importers:
       '@get-toasted/env':
         specifier: workspace:*
         version: link:../../../packages/env
+      '@get-toasted/helius':
+        specifier: workspace:*
+        version: link:../../../packages/helius
+      '@get-toasted/runtime':
+        specifier: workspace:*
+        version: link:../../../packages/runtime
       bullmq:
         specifier: ^5.40.0
         version: 5.76.3
@@ -403,6 +421,10 @@ importers:
         version: 8.59.1(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.2)
 
   packages/helius:
+    dependencies:
+      '@get-toasted/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@get-toasted/eslint-config':
         specifier: workspace:*
@@ -413,6 +435,9 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.2
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.15.3)(lightningcss@1.32.0)
 
   packages/jupiter:
     devDependencies:
@@ -425,6 +450,31 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.2
+
+  packages/runtime:
+    dependencies:
+      '@get-toasted/core':
+        specifier: workspace:*
+        version: link:../core
+      '@get-toasted/helius':
+        specifier: workspace:*
+        version: link:../helius
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.10.1
+    devDependencies:
+      '@get-toasted/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@get-toasted/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.15.3)(lightningcss@1.32.0)
 
   packages/schemas:
     dependencies:

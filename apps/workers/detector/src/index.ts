@@ -1,64 +1,166 @@
 import { Worker, type Job } from "bullmq";
 import IORedis from "ioredis";
-import { detectSandwichesAcrossSlots, type ParsedSwap } from "@get-toasted/core";
-import { createDb, detectedSandwiches } from "@get-toasted/db";
+import { serverEnv } from "@get-toasted/env";
+import {
+  HeliusClient,
+  parseHeliusTxToSwaps,
+  type HeliusEnhancedTransaction,
+} from "@get-toasted/helius";
+import {
+  computeLossUsd,
+  detectSandwichesAcrossSlots,
+  type SandwichDetection,
+} from "@get-toasted/core";
+import { createDb, Sandwiches } from "@get-toasted/db";
+import {
+  createBlockTimeResolver,
+  createDecimalsResolver,
+  createLeaderScheduleCache,
+  createLogger,
+  createPriceClient,
+  redisKeys,
+} from "@get-toasted/runtime";
 
-const REDIS_URL = process.env.REDIS_URL;
-const DATABASE_URL = process.env.DATABASE_URL;
+const log = createLogger({ worker: "detector" });
 
-if (!REDIS_URL || !DATABASE_URL) {
-  throw new Error("Missing required env vars: REDIS_URL, DATABASE_URL");
+const connection = new IORedis(serverEnv.REDIS_URL, {
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false,
+});
+const helper = new IORedis(serverEnv.REDIS_URL, {
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false,
+});
+
+const helius = new HeliusClient(
+  serverEnv.HELIUS_API_KEY,
+  serverEnv.HELIUS_RPC_URL,
+);
+const db = createDb(serverEnv.DATABASE_URL);
+const leader = createLeaderScheduleCache({ redis: helper, helius });
+const prices = createPriceClient({
+  redis: helper,
+  jupiterApiKey: serverEnv.JUPITER_API_KEY,
+});
+const rpcUrl =
+  serverEnv.HELIUS_RPC_URL ??
+  `https://mainnet.helius-rpc.com/?api-key=${serverEnv.HELIUS_API_KEY}`;
+const blockTimeResolver = createBlockTimeResolver({ redis: helper, rpcUrl });
+const decimals = createDecimalsResolver({ redis: helper, rpcUrl });
+
+type RealtimeJobData = { transaction: HeliusEnhancedTransaction };
+
+async function publishAlert(wallet: string, payload: Record<string, unknown>): Promise<void> {
+  await helper.xadd(
+    redisKeys.alertsQueue(wallet),
+    "MAXLEN",
+    "~",
+    "1000",
+    "*",
+    ...Object.entries(payload).flatMap(([k, v]) => [k, String(v)]),
+  );
 }
 
-const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
-const db = createDb(DATABASE_URL);
+async function enrichDetection(det: SandwichDetection): Promise<Sandwiches.SandwichInsert> {
+  const { candidate } = det;
 
-/**
- * scan-realtime — triggered by Helius webhook for each new confirmed block.
- * Job data: { slot: number; swaps: ParsedSwap[] }
- *
- * This worker receives pre-parsed swaps from the webhook handler
- * (the api app enqueues them after parsing the Helius enhanced transaction payload).
- */
-new Worker(
-  "scan-realtime",
-  async (job: Job<{ slot: number; swaps: ParsedSwap[] }>) => {
-    const { slot, swaps } = job.data;
+  let blockTime = candidate.front.blockTime;
+  if (Number.isNaN(blockTime.getTime()) || blockTime.getTime() === 0) {
+    const fetched = await blockTimeResolver.getBlockTime(candidate.slot);
+    if (fetched) blockTime = fetched;
+  }
 
-    if (swaps.length < 3) {
-      return { slot, detected: 0 };
-    }
+  const validatorVote =
+    det.validatorVoteAccount ?? (await leader.getValidatorForSlot(candidate.slot));
 
-    const sandwiches = detectSandwichesAcrossSlots(swaps);
+  const profitDecimals =
+    candidate.front.inputDecimals ||
+    (await decimals.getDecimals(candidate.front.inputMint)) ||
+    0;
+  const priceUsd = await prices.getTokenPriceUsd(candidate.front.inputMint, blockTime);
+  const lossUsd = computeLossUsd(det.victimLossRaw, profitDecimals, priceUsd);
 
-    if (sandwiches.length > 0) {
-      await db
-        .insert(detectedSandwiches)
-        .values(
-          sandwiches.map((s) => ({
-            slot: BigInt(s.slot),
-            blockTime: new Date(), // TODO: get from slot timestamp
-            pool: s.pool,
-            dex: s.front.programId.slice(0, 16),
-            attacker: s.attacker,
-            victimWallet: s.victim,
-            validatorVote: "", // TODO: leader-schedule cache
-            frontSig: s.front.signature,
-            victimSig: s.victimSwap.signature,
-            backSig: s.back.signature,
-            jitoBundled: s.jitoBundled,
-            inputMint: s.front.inputMint,
-            outputMint: s.front.outputMint,
-            victimInAmt: s.victimSwap.inputAmount.toString(),
-            victimOutAmt: s.victimSwap.outputAmount.toString(),
-          })),
-        )
-        .onConflictDoNothing();
-    }
+  return {
+    slot: candidate.slot,
+    blockTime,
+    pool: candidate.pool,
+    dex: candidate.front.dex,
+    attacker: candidate.front.signer,
+    victimWallet: candidate.victim.signer,
+    validatorVote,
+    frontSig: candidate.front.signature,
+    victimSig: candidate.victim.signature,
+    backSig: candidate.back.signature,
+    jitoBundled: det.jitoBundled,
+    jitoTipLamports:
+      candidate.front.jitoTipLamports ?? candidate.back.jitoTipLamports ?? null,
+    inputMint: candidate.front.inputMint,
+    outputMint: candidate.front.outputMint,
+    victimInAmt: candidate.victim.inputAmount.toString(),
+    victimOutAmt: candidate.victim.outputAmount.toString(),
+    counterfactualOutAmt: null,
+    attackerProfitRaw: det.attackerProfitRaw.toString(),
+    lossUsd: lossUsd !== null ? lossUsd.toFixed(2) : null,
+    confidence: det.confidenceScore.toFixed(2),
+    failed: det.failed,
+    isKnownBot: det.isKnownBot,
+    knownBotName: det.knownBotName,
+  };
+}
 
-    return { slot, detected: sandwiches.length };
-  },
-  { connection, concurrency: 10 },
+async function processJob(job: Job<RealtimeJobData>): Promise<{ detected: number }> {
+  const tx = job.data.transaction;
+  if (!tx || tx.type !== "SWAP") return { detected: 0 };
+
+  const swaps = parseHeliusTxToSwaps(tx);
+  if (swaps.length < 3) return { detected: 0 };
+
+  const detections = detectSandwichesAcrossSlots(swaps);
+  if (detections.length === 0) return { detected: 0 };
+
+  const enriched: Sandwiches.SandwichInsert[] = [];
+  for (const det of detections) {
+    enriched.push(await enrichDetection(det));
+  }
+
+  const { inserted } = await Sandwiches.batchInsertDetections(db, enriched);
+  for (const row of inserted) {
+    await publishAlert(row.victimWallet, {
+      type: "sandwich_detected",
+      sandwichId: row.id.toString(),
+      slot: row.slot.toString(),
+      dex: row.dex,
+      lossUsd: row.lossUsd ?? "",
+      confidence: row.confidence,
+      attacker: row.attacker,
+    });
+  }
+
+  log.info(
+    { signature: tx.signature, detected: inserted.length },
+    "detector: realtime tx processed",
+  );
+  return { detected: inserted.length };
+}
+
+const worker = new Worker<RealtimeJobData>("scan-realtime", processJob, {
+  connection,
+  concurrency: 20,
+});
+
+worker.on("ready", () => log.info("detector: ready"));
+worker.on("failed", (job, err) =>
+  log.error({ jobId: job?.id, err }, "detector: job failed"),
 );
 
-console.log("detector worker up — consuming queue: scan-realtime");
+const shutdown = async (signal: string) => {
+  log.info({ signal }, "detector: shutting down");
+  await worker.close();
+  connection.disconnect();
+  helper.disconnect();
+  process.exit(0);
+};
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
+
+log.info("detector: worker up — queue: scan-realtime");

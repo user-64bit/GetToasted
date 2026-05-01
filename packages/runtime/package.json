@@ -1,5 +1,5 @@
 {
-  "name": "@get-toasted/helius",
+  "name": "@get-toasted/runtime",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,12 +14,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@get-toasted/core": "workspace:*"
+    "@get-toasted/core": "workspace:*",
+    "@get-toasted/helius": "workspace:*",
+    "ioredis": "^5.4.0"
   },
   "devDependencies": {
+    "@get-toasted/eslint-config": "workspace:*",
     "@get-toasted/tsconfig": "workspace:*",
     "typescript": "^5.9.2",
-    "vitest": "^2.1.0",
-    "@get-toasted/eslint-config": "workspace:*"
+    "vitest": "^2.1.0"
   }
 }
