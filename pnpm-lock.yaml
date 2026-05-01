@@ -35,6 +35,9 @@ importers:
       '@get-toasted/helius':
         specifier: workspace:*
         version: link:../../packages/helius
+      '@get-toasted/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@get-toasted/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas

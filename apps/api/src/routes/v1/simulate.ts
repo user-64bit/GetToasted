@@ -1,109 +1,101 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { SimulateRequestSchema } from "@get-toasted/schemas";
-import { detectedSandwiches, pools as poolsTbl } from "@get-toasted/db";
-import { eq, and, gte, avg, count } from "drizzle-orm";
-import { db, redis } from "../../lib/connections.js";
+import { Pools, Sandwiches } from "@get-toasted/db";
+import { logger } from "@get-toasted/runtime";
+import { db, priceClient } from "../../lib/connections.js";
 
 const JUPITER_QUOTE_URL = "https://lite-api.jup.ag/swap/v1/quote";
-const JUPITER_PRICE_URL = "https://lite-api.jup.ag/price/v2";
+const SIMULATE_TIMEOUT_MS = 8_000;
 
 export const simulate = new Hono();
 
-// POST /api/v1/simulate — MEV risk estimate for a proposed swap
+type Verdict = "PROCEED" | "PROCEED_WITH_CAUTION" | "USE_MEV_PROTECTED_ROUTE";
+
 simulate.post("/", zValidator("json", SimulateRequestSchema), async (c) => {
   const { inputMint, outputMint, amount } = c.req.valid("json");
+  const slippageBps = 50;
 
-  // 1. Jupiter quote
-  const quoteParams = new URLSearchParams({
-    inputMint,
-    outputMint,
-    amount,
-    slippageBps: "50",
-    restrictIntermediateTokens: "true",
-  });
-  const quoteRes = await fetch(`${JUPITER_QUOTE_URL}?${quoteParams}`);
-  if (!quoteRes.ok) {
-    return c.json({ error: "jupiter_quote_failed" }, 502);
-  }
-  const quote = (await quoteRes.json()) as {
-    outAmount: string;
-    priceImpactPct: string;
-    routePlan: Array<{ swapInfo: { ammKey: string } }>;
-  };
+  const ac = new AbortController();
+  const timeout = setTimeout(() => ac.abort(), SIMULATE_TIMEOUT_MS);
 
-  const priceImpactPct = parseFloat(quote.priceImpactPct ?? "0");
-  const ammKey = quote.routePlan[0]?.swapInfo?.ammKey ?? "";
+  try {
+    const params = new URLSearchParams({
+      inputMint,
+      outputMint,
+      amount,
+      slippageBps: String(slippageBps),
+      restrictIntermediateTokens: "true",
+    });
 
-  // 2. Pool risk from DB
-  const [pool] = await db
-    .select()
-    .from(poolsTbl)
-    .where(eq(poolsTbl.address, ammKey))
-    .limit(1);
-
-  // 3. Sandwich stats last 7 days on this pool
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [stats] = await db
-    .select({
-      avgLoss: avg(detectedSandwiches.lossUsd),
-      sandwichCount: count(),
-    })
-    .from(detectedSandwiches)
-    .where(
-      and(
-        eq(detectedSandwiches.pool, ammKey),
-        gte(detectedSandwiches.blockTime, sevenDaysAgo),
-      ),
-    );
-
-  const sandwichCount7d = Number(stats?.sandwichCount ?? 0);
-  const avgLossUsd = parseFloat(stats?.avgLoss ?? "0");
-
-  // 4. Jupiter price for input mint (cached 1hr)
-  const priceKey = `price:${inputMint}:${Math.floor(Date.now() / 3_600_000)}`;
-  let tokenPriceUsd = 0;
-  const cached = await redis.get(priceKey);
-  if (cached) {
-    tokenPriceUsd = parseFloat(cached);
-  } else {
-    try {
-      const priceRes = await fetch(`${JUPITER_PRICE_URL}?ids=${inputMint}`);
-      if (priceRes.ok) {
-        const priceData = (await priceRes.json()) as {
-          data: Record<string, { price: number }>;
-        };
-        tokenPriceUsd = priceData.data[inputMint]?.price ?? 0;
-        await redis.set(priceKey, String(tokenPriceUsd), "EX", 3600);
-      }
-    } catch {
-      // price unavailable — proceed without USD sizing
+    const quoteRes = await fetch(`${JUPITER_QUOTE_URL}?${params}`, { signal: ac.signal });
+    if (!quoteRes.ok) {
+      return c.json(
+        { error: "jupiter_quote_failed", code: "JUPITER_UNAVAILABLE" },
+        502,
+      );
     }
+    const quote = (await quoteRes.json()) as {
+      outAmount: string;
+      priceImpactPct: string;
+      routePlan: Array<{ swapInfo: { ammKey: string } }>;
+    };
+
+    const priceImpactPct = parseFloat(quote.priceImpactPct ?? "0");
+    const ammKey = quote.routePlan[0]?.swapInfo?.ammKey ?? null;
+
+    const [pool, poolStats] = ammKey
+      ? await Promise.all([
+          Pools.getPool(db, ammKey),
+          Sandwiches.getPoolSandwichStats(db, ammKey, 7),
+        ])
+      : [null, { count: 0, avgLossUsd: null, lastSeen: null }];
+
+    const tokenPriceUsd = await priceClient.getTokenPriceUsd(inputMint, new Date());
+    const amountFloat = Number(amount) / 1e9;
+    const amountUsd = tokenPriceUsd ? amountFloat * tokenPriceUsd : null;
+
+    const avgLossUsd = poolStats.avgLossUsd ?? 0;
+    const avgLossBps =
+      amountUsd && amountUsd > 0 ? (avgLossUsd / amountUsd) * 10_000 : 0;
+    const estimatedMevRiskUsd =
+      amountUsd !== null
+        ? amountUsd * (priceImpactPct / 100 + (2 * avgLossBps) / 10_000)
+        : null;
+
+    let recommendation: Verdict;
+    if (poolStats.count === 0) {
+      recommendation = "PROCEED";
+    } else if (estimatedMevRiskUsd !== null && estimatedMevRiskUsd < 1) {
+      recommendation = "PROCEED_WITH_CAUTION";
+    } else if (poolStats.count > 5 || (estimatedMevRiskUsd ?? 0) >= 5) {
+      recommendation = "USE_MEV_PROTECTED_ROUTE";
+    } else {
+      recommendation = "PROCEED_WITH_CAUTION";
+    }
+
+    return c.json({
+      expectedOut: quote.outAmount,
+      priceImpactPct,
+      pool: ammKey,
+      poolRiskScore: pool?.riskScore ?? null,
+      sandwichCount7d: poolStats.count,
+      avgLossUsd7d: poolStats.avgLossUsd,
+      tokenPriceUsd: tokenPriceUsd ?? null,
+      amountUsd,
+      estimatedMevRiskUsd:
+        estimatedMevRiskUsd !== null
+          ? Number(estimatedMevRiskUsd.toFixed(4))
+          : null,
+      recommendation,
+    });
+  } catch (err) {
+    if ((err as Error).name === "AbortError") {
+      return c.json({ error: "simulation_timeout", code: "SIM_TIMEOUT" }, 504);
+    }
+    logger.error({ err }, "simulate: unexpected error");
+    return c.json({ error: "internal_server_error" }, 500);
+  } finally {
+    clearTimeout(timeout);
   }
-
-  // 5. Compute risk estimate
-  const amountUsd = (Number(amount) / 1e9) * tokenPriceUsd;
-  const avgLossBps = amountUsd > 0 ? (avgLossUsd / amountUsd) * 10000 : 0;
-  const estimatedMevRiskUsd =
-    amountUsd * (priceImpactPct / 100 + (2 * avgLossBps) / 10000);
-
-  // 6. Verdict
-  let recommendation: "PROCEED" | "PROCEED_WITH_CAUTION" | "USE_MEV_PROTECTED_ROUTE";
-  if (sandwichCount7d === 0) {
-    recommendation = "PROCEED";
-  } else if (estimatedMevRiskUsd < 1) {
-    recommendation = "PROCEED_WITH_CAUTION";
-  } else {
-    recommendation = "USE_MEV_PROTECTED_ROUTE";
-  }
-
-  return c.json({
-    expectedOut: quote.outAmount,
-    priceImpactPct,
-    poolRisk: pool?.riskScore ?? null,
-    estimatedMevRiskUsd: estimatedMevRiskUsd.toFixed(4),
-    recommendation,
-    pool: ammKey,
-    sandwichCount7d,
-  });
 });

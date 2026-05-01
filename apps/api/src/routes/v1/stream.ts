@@ -6,6 +6,7 @@ import { scanJobs } from "@get-toasted/db";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import IORedis from "ioredis";
+import { redisKeys } from "@get-toasted/runtime";
 import { db } from "../../lib/connections.js";
 import { serverEnv } from "@get-toasted/env";
 
@@ -71,7 +72,7 @@ stream.get(
             "BLOCK",
             5000,
             "STREAMS",
-            `alerts:queue:${address}`,
+            redisKeys.alertsQueue(address),
             lastId,
           );
           if (!result) continue;

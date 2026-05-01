@@ -1,95 +1,111 @@
 import { serve } from "@hono/node-server";
-import { Hono } from "hono";
-import { logger } from "hono/logger";
+import { Hono, type Context, type Next } from "hono";
+import { logger as honoLogger } from "hono/logger";
 import { cors } from "hono/cors";
 import { serverEnv } from "@get-toasted/env";
 import { sql } from "drizzle-orm";
+import { logger, redisKeys } from "@get-toasted/runtime";
 import { db, redis } from "./lib/connections.js";
 import { v1 } from "./routes/v1/index.js";
 import { auth } from "./routes/auth/index.js";
 import { webhooks } from "./routes/webhooks/index.js";
-import type { Context, Next } from "hono";
 
 const app = new Hono();
 
-// CORS — credentials required for HttpOnly cookie auth
 app.use(
   "*",
   cors({
     origin: (origin) => {
+      if (!origin) return null;
       const allowed = [
         serverEnv.CORS_ORIGIN ?? serverEnv.APP_URL,
         "http://localhost:3000",
-      ].filter(Boolean) as string[];
+      ].filter((v): v is string => Boolean(v));
       return allowed.includes(origin) ? origin : null;
     },
     credentials: true,
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "X-API-Key"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   }),
 );
 
-app.use("*", logger());
+app.use("*", honoLogger());
 
-// Sliding-window rate limiter: 100 req/min per IP
 app.use("*", async (c: Context, next: Next) => {
+  if (c.req.path.startsWith("/api/webhooks")) return next();
   const ip =
     c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
     c.req.header("x-real-ip") ??
     "unknown";
-  const window = Math.floor(Date.now() / 60000);
-  const key = `ratelimit:${ip}:${window}`;
+  const window = Math.floor(Date.now() / 60_000);
+  const key = redisKeys.rateWindow(ip, window);
   const count = await redis.incr(key);
   if (count === 1) await redis.expire(key, 60);
   if (count > 100) {
-    return c.json({ error: "rate_limited" }, 429);
+    return c.json(
+      { error: "rate_limited", code: "RATE_LIMIT_IP" },
+      429,
+      { "Retry-After": "60" },
+    );
   }
   return next();
 });
 
 app.get("/health", (c) =>
-  c.json({ status: "ok", timestamp: new Date().toISOString(), uptime: process.uptime() }),
+  c.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  }),
 );
 
 app.route("/api/auth", auth);
 app.route("/api/v1", v1);
 app.route("/api/webhooks", webhooks);
 
-// Startup: verify DB + Redis connectivity, then serve
-async function start() {
-  // Postgres connectivity check
+app.onError((err, c) => {
+  logger.error(
+    { err, path: c.req.path, method: c.req.method },
+    "api: unhandled route error",
+  );
+  return c.json({ error: "internal_server_error" }, 500);
+});
+
+app.notFound((c) => c.json({ error: "not_found", path: c.req.path }, 404));
+
+async function start(): Promise<void> {
   try {
     await db.execute(sql`SELECT 1`);
-    console.log("Postgres connected");
+    logger.info("api: postgres connected");
   } catch (err) {
-    console.error("Postgres connection failed:", err);
+    logger.error({ err }, "api: postgres connection failed");
     process.exit(1);
   }
 
-  // Redis connectivity check
   try {
     await redis.ping();
-    console.log("Redis connected");
+    logger.info("api: redis connected");
   } catch (err) {
-    console.error("Redis connection failed:", err);
+    logger.error({ err }, "api: redis connection failed");
     process.exit(1);
   }
 
   const port = serverEnv.PORT;
   const server = serve({ fetch: app.fetch, port });
-  console.log(`GetToasted API running on port ${port}`);
+  logger.info({ port }, "api: listening");
 
-  // Graceful shutdown
-  const shutdown = async (signal: string) => {
-    console.log(`${signal} received — shutting down`);
+  const shutdown = (signal: string): void => {
+    logger.info({ signal }, "api: shutting down");
     server.close(() => {
       redis.disconnect();
       process.exit(0);
     });
   };
-
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
-start();
+start().catch((err: unknown) => {
+  logger.error({ err }, "api: startup failed");
+  process.exit(1);
+});

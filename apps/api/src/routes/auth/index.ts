@@ -6,6 +6,7 @@ import { SignJWT } from "jose";
 import bs58 from "bs58";
 import { z } from "zod";
 import { serverEnv } from "@get-toasted/env";
+import { redisKeys } from "@get-toasted/runtime";
 import { redis } from "../../lib/connections.js";
 
 export const auth = new Hono();
@@ -22,7 +23,7 @@ auth.get("/nonce", async (c) => {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   const nonce = bs58.encode(bytes);
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-  await redis.set(`siws:nonce:${nonce}`, "1", "EX", 300);
+  await redis.set(redisKeys.authNonce(nonce), "1", "EX", 300);
   return c.json({ nonce, expiresAt });
 });
 
@@ -30,9 +31,9 @@ auth.get("/nonce", async (c) => {
 auth.post("/verify", zValidator("json", VerifySchema), async (c) => {
   const body = c.req.valid("json");
 
-  const exists = await redis.get(`siws:nonce:${body.nonce}`);
+  const exists = await redis.get(redisKeys.authNonce(body.nonce));
   if (!exists) return c.json({ error: "invalid_or_expired_nonce" }, 401);
-  await redis.del(`siws:nonce:${body.nonce}`);
+  await redis.del(redisKeys.authNonce(body.nonce));
 
   try {
     const sigBytes = bs58.decode(body.signature);

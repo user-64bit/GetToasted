@@ -15,6 +15,7 @@
     "@get-toasted/db": "workspace:*",
     "@get-toasted/env": "workspace:*",
     "@get-toasted/helius": "workspace:*",
+    "@get-toasted/runtime": "workspace:*",
     "@get-toasted/schemas": "workspace:*",
     "@hono/node-server": "^1.14.0",
     "@hono/zod-openapi": "^0.18.0",

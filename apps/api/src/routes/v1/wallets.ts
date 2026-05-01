@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { SolanaAddressSchema } from "@get-toasted/schemas";
-import { wallets as walletsTbl, detectedSandwiches, scanJobs } from "@get-toasted/db";
-import { eq, desc, and, gte, lte, count } from "drizzle-orm";
+import { Sandwiches, ScanJobsQ, Wallets } from "@get-toasted/db";
 import { Queue } from "bullmq";
 import { z } from "zod";
+import { redisKeys } from "@get-toasted/runtime";
 import { db, redis } from "../../lib/connections.js";
 import { authMiddleware } from "../../middleware/auth.js";
 
@@ -14,119 +14,190 @@ const AddressParam = z.object({ address: SolanaAddressSchema });
 
 const SandwichesQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  offset: z.coerce.number().int().min(0).default(0),
+  cursor: z.string().optional(),
   fromDate: z.string().datetime().optional(),
   toDate: z.string().datetime().optional(),
+  dex: z.string().optional(),
+  minLossUsd: z.coerce.number().nonnegative().optional(),
 });
 
 export const wallets = new Hono();
 
-// GET /api/v1/wallets/:address — public wallet overview
+function decodeCursor(raw?: string): { id: bigint; blockTime: Date } | undefined {
+  if (!raw) return undefined;
+  try {
+    const decoded = Buffer.from(raw, "base64url").toString("utf8");
+    const parsed = JSON.parse(decoded) as { id: string; blockTime: string };
+    return { id: BigInt(parsed.id), blockTime: new Date(parsed.blockTime) };
+  } catch {
+    return undefined;
+  }
+}
+
+function encodeCursor(c: { id: string; blockTime: string } | null): string | null {
+  if (!c) return null;
+  return Buffer.from(JSON.stringify(c)).toString("base64url");
+}
+
 wallets.get("/:address", zValidator("param", AddressParam), async (c) => {
   const { address } = c.req.valid("param");
 
-  const [wallet] = await db
-    .select()
-    .from(walletsTbl)
-    .where(eq(walletsTbl.address, address))
-    .limit(1);
+  const wallet = await Wallets.getWallet(db, address);
+  if (!wallet) {
+    return c.json({
+      address,
+      scanStatus: "unknown",
+      sandwichCount: 0,
+      totalLossUsd: "0",
+      firstAttackAt: null,
+      lastAttackAt: null,
+      scanProgress: null,
+    });
+  }
 
-  if (!wallet) return c.json({ error: "not_found" }, 404);
+  let scanProgress: {
+    signaturesProcessed: number;
+    sandwichesFound: number;
+    cursor: string | null;
+    progressPct: number;
+  } | null = null;
 
-  const sandwiches = await db
-    .select()
-    .from(detectedSandwiches)
-    .where(eq(detectedSandwiches.victimWallet, address))
-    .orderBy(desc(detectedSandwiches.blockTime))
-    .limit(20);
+  if (wallet.scanStatus === "scanning" || wallet.scanStatus === "pending") {
+    const liveRaw = await redis.get(redisKeys.scanProgress(address));
+    const job = await ScanJobsQ.getLatestScanJobForWallet(db, address);
+    if (liveRaw) {
+      try {
+        const live = JSON.parse(liveRaw) as {
+          signaturesProcessed: number;
+          sandwichesFound: number;
+          cursor?: string;
+        };
+        scanProgress = {
+          signaturesProcessed: live.signaturesProcessed,
+          sandwichesFound: live.sandwichesFound,
+          cursor: live.cursor ?? null,
+          progressPct: job?.progressPct ?? 0,
+        };
+      } catch {
+        scanProgress = null;
+      }
+    } else if (job) {
+      scanProgress = {
+        signaturesProcessed: job.signaturesProcessed,
+        sandwichesFound: job.sandwichesFound,
+        cursor: job.cursor,
+        progressPct: job.progressPct,
+      };
+    }
+  }
 
   return c.json({
-    wallet,
-    sandwiches,
-    totalLossUsd: wallet.totalLossUsd ?? "0",
+    address: wallet.address,
+    firstSeenAt: wallet.firstSeenAt,
+    lastScanAt: wallet.lastScanAt,
     scanStatus: wallet.scanStatus,
+    totalTxCount: wallet.totalTxCount,
+    sandwichCount: wallet.sandwichCount,
+    totalLossUsd: wallet.totalLossUsd,
+    firstAttackAt: wallet.firstAttackAt,
+    lastAttackAt: wallet.lastAttackAt,
+    scanProgress,
   });
 });
 
-// GET /api/v1/wallets/:address/sandwiches — paginated sandwich history
 wallets.get(
   "/:address/sandwiches",
   zValidator("param", AddressParam),
   zValidator("query", SandwichesQuery),
   async (c) => {
     const { address } = c.req.valid("param");
-    const { limit, offset, fromDate, toDate } = c.req.valid("query");
+    const q = c.req.valid("query");
 
-    const conditions = [eq(detectedSandwiches.victimWallet, address)];
-    if (fromDate) conditions.push(gte(detectedSandwiches.blockTime, new Date(fromDate)));
-    if (toDate) conditions.push(lte(detectedSandwiches.blockTime, new Date(toDate)));
-    const where = and(...conditions);
-
-    const [data, totalResult] = await Promise.all([
-      db
-        .select()
-        .from(detectedSandwiches)
-        .where(where)
-        .orderBy(desc(detectedSandwiches.blockTime))
-        .limit(limit)
-        .offset(offset),
-      db.select({ total: count() }).from(detectedSandwiches).where(where),
-    ]);
-
-    const total = totalResult[0]?.total ?? 0;
+    const { data, nextCursor } = await Sandwiches.getSandwichesForWallet(
+      db,
+      {
+        victimWallet: address,
+        fromDate: q.fromDate ? new Date(q.fromDate) : undefined,
+        toDate: q.toDate ? new Date(q.toDate) : undefined,
+        dex: q.dex,
+        minLossUsd: q.minLossUsd,
+      },
+      {
+        limit: q.limit,
+        cursor: decodeCursor(q.cursor),
+      },
+    );
 
     return c.json({
-      data,
-      total: Number(total),
-      hasMore: offset + data.length < Number(total),
+      data: data.map(serializeSandwich),
+      nextCursor: encodeCursor(nextCursor),
     });
   },
 );
 
-// POST /api/v1/wallets/:address/scan — protected, enqueue historical scan
 wallets.post(
   "/:address/scan",
   authMiddleware,
   zValidator("param", AddressParam),
   async (c) => {
     const { address } = c.req.valid("param");
-    const userId = c.get("wallet") as string;
 
-    // Check if scan already in progress
-    const locked = await redis.get(`scan:lock:${address}`);
-    if (locked) {
-      return c.json({ error: "scan_already_running" }, 409);
+    const lockHolder = await redis.get(redisKeys.scanLock(address));
+    if (lockHolder) {
+      return c.json({ error: "scan_already_running", code: "SCAN_LOCK_HELD" }, 409);
     }
 
-    // Upsert wallet row
-    await db
-      .insert(walletsTbl)
-      .values({ address, scanStatus: "pending" })
-      .onConflictDoUpdate({
-        target: walletsTbl.address,
-        set: { scanStatus: "pending" },
-      });
+    await Wallets.upsertWalletPending(db, address);
+    const job = await ScanJobsQ.createScanJob(db, address);
 
-    // Insert scan job record
-    const [job] = await db
-      .insert(scanJobs)
-      .values({ wallet: address, status: "pending", startedAt: new Date() })
-      .returning({ id: scanJobs.id });
-
-    // Enqueue BullMQ job
-    const bullJob = await scanQueue.add(
+    await scanQueue.add(
       "scan",
-      { wallet: address, userId, jobId: job!.id },
-      { jobId: job!.id },
+      { wallet: address, jobId: job.id },
+      { jobId: job.id, removeOnComplete: { age: 24 * 60 * 60 } },
     );
 
-    return c.json({ scanId: bullJob.id, status: "queued" }, 202);
+    return c.json(
+      {
+        scanId: job.id,
+        status: "queued",
+        estimatedDurationSeconds: 300,
+      },
+      202,
+    );
   },
 );
 
-// Needed for auth middleware context typing
 declare module "hono" {
   interface ContextVariableMap {
     wallet: string;
   }
+}
+
+function serializeSandwich(row: Sandwiches.SandwichRow) {
+  return {
+    id: row.id.toString(),
+    slot: row.slot.toString(),
+    blockTime: row.blockTime,
+    pool: row.pool,
+    dex: row.dex,
+    attacker: row.attacker,
+    victimWallet: row.victimWallet,
+    validatorVote: row.validatorVote,
+    frontSig: row.frontSig,
+    victimSig: row.victimSig,
+    backSig: row.backSig,
+    jitoBundled: row.jitoBundled,
+    jitoTipLamports: row.jitoTipLamports?.toString() ?? null,
+    inputMint: row.inputMint,
+    outputMint: row.outputMint,
+    victimInAmt: row.victimInAmt,
+    victimOutAmt: row.victimOutAmt,
+    attackerProfitRaw: row.attackerProfitRaw,
+    lossUsd: row.lossUsd,
+    confidence: row.confidence,
+    failed: row.failed,
+    isKnownBot: row.isKnownBot,
+    knownBotName: row.knownBotName,
+    detectedAt: row.detectedAt,
+  };
 }
