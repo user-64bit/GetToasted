@@ -4,7 +4,9 @@ import { logger as honoLogger } from "hono/logger";
 import { cors } from "hono/cors";
 import { serverEnv } from "@get-toasted/env";
 import { sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import { logger, redisKeys } from "@get-toasted/runtime";
+import { ApiKeys } from "@get-toasted/db";
 import { db, redis } from "./lib/connections.js";
 import { v1 } from "./routes/v1/index.js";
 import { auth } from "./routes/auth/index.js";
@@ -33,6 +35,35 @@ app.use("*", honoLogger());
 
 app.use("*", async (c: Context, next: Next) => {
   if (c.req.path.startsWith("/api/webhooks")) return next();
+
+  const presented = c.req.header("x-api-key");
+  if (presented) {
+    const hash = createHash("sha256").update(presented).digest("hex");
+    const row = await ApiKeys.getApiKeyByHash(db, hash);
+    if (!row) {
+      return c.json({ error: "invalid_api_key", code: "API_KEY_INVALID" }, 401);
+    }
+    if (row.expiresAt && row.expiresAt.getTime() < Date.now()) {
+      return c.json({ error: "expired_api_key", code: "API_KEY_EXPIRED" }, 401);
+    }
+    const window = Math.floor(Date.now() / 60_000);
+    const bucket = `${redisKeys.rateKey(row.id)}:${window}`;
+    const count = await redis.incr(bucket);
+    if (count === 1) await redis.expire(bucket, 60);
+    if (count > row.rateLimit) {
+      return c.json(
+        { error: "rate_limited", code: "RATE_LIMIT_KEY" },
+        429,
+        { "Retry-After": "60" },
+      );
+    }
+    c.set("apiKeyId", row.id);
+    void ApiKeys.touchApiKeyLastUsed(db, row.id).catch((err: unknown) => {
+      logger.warn({ err, keyId: row.id }, "api: failed to touch api key");
+    });
+    return next();
+  }
+
   const ip =
     c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
     c.req.header("x-real-ip") ??
@@ -50,6 +81,12 @@ app.use("*", async (c: Context, next: Next) => {
   }
   return next();
 });
+
+declare module "hono" {
+  interface ContextVariableMap {
+    apiKeyId: string;
+  }
+}
 
 app.get("/health", (c) =>
   c.json({
