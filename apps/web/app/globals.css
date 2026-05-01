@@ -81,18 +81,6 @@
   --chart-grid: #1a1a1a;
 }
 
-/* Reset */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-* {
-  margin: 0;
-  padding: 0;
-}
-
 html {
   color-scheme: dark;
   background: var(--bg-void);
@@ -450,17 +438,6 @@ body::before {
 @keyframes draw-check {
   to {
     stroke-dashoffset: 0;
-  }
-}
-
-/* Dashboard layout — offset content past the fixed sidebar on md+ */
-.dashboard-main {
-  padding-left: 0;
-}
-
-@media (min-width: 768px) {
-  .dashboard-main {
-    padding-left: 260px;
   }
 }
 

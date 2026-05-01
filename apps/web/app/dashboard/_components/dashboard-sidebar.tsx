@@ -10,9 +10,11 @@ export function DashboardSidebar({ wallet }: DashboardSidebarProps) {
 
   return (
     <aside
-      className="hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-30"
+      className="hidden md:flex flex-col sticky top-0 self-start z-30"
       style={{
         width: 240,
+        flexShrink: 0,
+        height: "100vh",
         background: "var(--bg-surface)",
         borderRight: "1px solid var(--border-subtle)",
         padding: "24px 0",
