@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
 import { useMe } from "../../lib/api/auth";
 import {
   useStartScan,
@@ -64,13 +63,11 @@ export function DashboardClient({ wallet }: DashboardClientProps) {
 
 function NoScanYet({ wallet }: { wallet: string }) {
   const me = useMe();
-  const { connected, publicKey } = useWallet();
   const startScan = useStartScan(wallet);
 
+  const canScan = Boolean(me.data?.authenticated);
   const isOwnWallet =
     me.data?.authenticated && me.data.address === wallet;
-  const walletConnected = connected && publicKey?.toBase58() === wallet;
-  const canScan = isOwnWallet || walletConnected;
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
@@ -87,8 +84,10 @@ function NoScanYet({ wallet }: { wallet: string }) {
           }}
         >
           {canScan
-            ? "Kick off a forensic scan of this wallet to find every sandwich attack."
-            : "Sign in with this wallet on the home page to start a scan."}
+            ? isOwnWallet
+              ? "Kick off a forensic scan of your wallet to find every sandwich attack."
+              : "Kick off a forensic scan of this wallet."
+            : "Sign in with any Solana wallet on the home page to start a scan."}
         </p>
 
         {canScan && (
