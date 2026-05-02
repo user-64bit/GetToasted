@@ -219,3 +219,12 @@ export const alerts = pgTable(
   },
   (t) => [index("idx_alerts_wallet").on(t.wallet, t.createdAt)],
 );
+
+export const systemConfig = pgTable("system_config", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});

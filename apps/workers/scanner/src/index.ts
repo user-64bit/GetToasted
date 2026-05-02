@@ -60,6 +60,7 @@ const decimals = createDecimalsResolver({
 const webhooks = createWebhookManager({
   helius,
   redis: helper,
+  db,
   apiBaseUrl: serverEnv.API_BASE_URL ?? serverEnv.APP_URL,
   webhookSecret: serverEnv.HELIUS_WEBHOOK_SECRET,
   webhookId: serverEnv.HELIUS_WEBHOOK_ID,

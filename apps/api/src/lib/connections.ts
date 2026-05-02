@@ -36,6 +36,7 @@ export const decimalsCache = createDecimalsResolver({ redis, rpcUrl });
 export const webhookManager = createWebhookManager({
   helius,
   redis,
+  db,
   apiBaseUrl: serverEnv.API_BASE_URL ?? serverEnv.APP_URL,
   webhookSecret: serverEnv.HELIUS_WEBHOOK_SECRET,
   webhookId: serverEnv.HELIUS_WEBHOOK_ID,

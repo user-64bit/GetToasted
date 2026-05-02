@@ -477,6 +477,9 @@ importers:
       '@get-toasted/core':
         specifier: workspace:*
         version: link:../core
+      '@get-toasted/db':
+        specifier: workspace:*
+        version: link:../db
       '@get-toasted/helius':
         specifier: workspace:*
         version: link:../helius
