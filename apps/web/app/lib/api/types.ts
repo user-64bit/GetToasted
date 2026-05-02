@@ -77,3 +77,28 @@ export interface MeResponse {
   address?: string;
   expiresAt?: string | null;
 }
+
+export type SimulateVerdict =
+  | "PROCEED"
+  | "PROCEED_WITH_CAUTION"
+  | "USE_MEV_PROTECTED_ROUTE";
+
+export interface SimulateRequest {
+  wallet: string;
+  inputMint: string;
+  outputMint: string;
+  amount: string;
+}
+
+export interface SimulateResponse {
+  expectedOut: string;
+  priceImpactPct: number;
+  pool: string | null;
+  poolRiskScore: number | null;
+  sandwichCount7d: number;
+  avgLossUsd7d: string | null;
+  tokenPriceUsd: number | null;
+  amountUsd: number | null;
+  estimatedMevRiskUsd: number | null;
+  recommendation: SimulateVerdict;
+}
