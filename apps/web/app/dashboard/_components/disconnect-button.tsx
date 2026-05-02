@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { getApiUrl } from "../../lib/api-url";
 
 export function DisconnectButton() {
   const router = useRouter();
+  const { disconnect } = useWallet();
   const [pending, setPending] = useState(false);
 
   async function handleClick() {
@@ -18,6 +20,11 @@ export function DisconnectButton() {
       });
     } catch {
       // best-effort; cookie clear is server-side, navigate anyway
+    }
+    try {
+      await disconnect();
+    } catch {
+      // ignore — wallet may already be disconnected
     }
     router.push("/");
     router.refresh();

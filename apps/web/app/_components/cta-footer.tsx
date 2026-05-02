@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ConnectWalletButton } from "./connect-wallet-button";
 
 export function CtaFooter() {
   return (
@@ -35,23 +35,23 @@ export function CtaFooter() {
           Have you been attacked?
         </p>
 
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center mt-12 gt-btn"
-          style={{
-            background: "var(--accent)",
-            color: "var(--text-inverse)",
-            padding: "20px 32px",
-            borderRadius: 8,
-            fontFamily: "var(--font-mono)",
-            fontSize: 16,
-            fontWeight: 600,
-            letterSpacing: "0.04em",
-            gap: 10,
-          }}
-        >
-          Connect Wallet — It&apos;s Free <span aria-hidden>→</span>
-        </Link>
+        <div className="mt-12 inline-block">
+          <ConnectWalletButton
+            label="Connect Wallet — It's Free"
+            className="inline-flex items-center gt-btn"
+            style={{
+              background: "var(--accent)",
+              color: "var(--text-inverse)",
+              padding: "20px 32px",
+              borderRadius: 8,
+              fontFamily: "var(--font-mono)",
+              fontSize: 16,
+              fontWeight: 600,
+              letterSpacing: "0.04em",
+              gap: 10,
+            }}
+          />
+        </div>
       </div>
     </section>
   );

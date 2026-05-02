@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConnectWalletButton } from "./connect-wallet-button";
 
 export function CommandBar() {
   return (
@@ -19,8 +20,7 @@ export function CommandBar() {
       <div className="ml-auto flex items-center gap-1">
         <NavLink href="/docs" className="hidden md:block">Docs</NavLink>
         <NavLink href="#" className="hidden md:block">GitHub</NavLink>
-        <Link
-          href="/dashboard"
+        <ConnectWalletButton
           className="gt-btn inline-flex items-center gap-1.5"
           style={{
             background: "var(--accent)",
@@ -32,9 +32,7 @@ export function CommandBar() {
             fontWeight: 500,
             letterSpacing: "0.02em",
           }}
-        >
-          Connect Wallet <span aria-hidden>→</span>
-        </Link>
+        />
       </div>
     </nav>
   );

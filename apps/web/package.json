@@ -12,7 +12,12 @@
   },
   "dependencies": {
     "@get-toasted/ui": "workspace:*",
+    "@solana/wallet-adapter-base": "^0.9.23",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.35",
+    "@solana/web3.js": "^1.95.4",
     "@tailwindcss/postcss": "^4",
+    "bs58": "^6.0.0",
     "next": "16.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
+import { WalletProvider } from "./_components/wallet-provider";
 
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
@@ -43,7 +44,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistMono.variable} ${dmSans.variable}`}>
-      <body>{children}</body>
+      <body>
+        <WalletProvider>{children}</WalletProvider>
+      </body>
     </html>
   );
 }

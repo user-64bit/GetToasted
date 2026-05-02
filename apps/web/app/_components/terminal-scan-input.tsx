@@ -2,10 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 export function TerminalScanInput() {
   const router = useRouter();
-  const [value, setValue] = useState("");
+  const { publicKey, connected } = useWallet();
+  const [manualValue, setManualValue] = useState<string | null>(null);
+
+  const value =
+    manualValue ?? (connected && publicKey ? publicKey.toBase58() : "");
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -33,7 +38,7 @@ export function TerminalScanInput() {
       </span>
       <input
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => setManualValue(e.target.value)}
         placeholder="Paste wallet address or connect"
         spellCheck={false}
         autoCapitalize="off"
