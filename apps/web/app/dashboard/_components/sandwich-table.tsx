@@ -4,7 +4,7 @@ import { AttackerAddress } from "@get-toasted/ui/attacker-address";
 import { MonoNumber } from "@get-toasted/ui/mono-number";
 import type { Sandwich } from "@get-toasted/ui/types";
 import { useMemo, useState } from "react";
-import { attackerDisplayName } from "./mock-data";
+import { attackerDisplayName } from "./view-model";
 
 const TIME_RANGES = [
   { label: "All time", value: "all" },

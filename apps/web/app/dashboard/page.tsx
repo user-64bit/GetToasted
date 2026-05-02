@@ -1,12 +1,9 @@
 import Link from "next/link";
-import { DashboardClient, type DashboardMode } from "./_components/dashboard-client";
-import { mockDashboard } from "./_components/mock-data";
+import { DashboardClient } from "./_components/dashboard-client";
 
 interface DashboardPageProps {
   searchParams: Promise<{
     wallet?: string | string[];
-    status?: string | string[];
-    clean?: string | string[];
   }>;
 }
 
@@ -22,15 +19,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     return <NoWallet />;
   }
 
-  const status = firstParam(params.status);
-  const clean = firstParam(params.clean);
-
-  const initialMode: DashboardMode = status === "complete" ? "complete" : "scanning";
-  const data = mockDashboard(wallet, { force: clean ? "clean" : "auto" });
-
   return (
     <main style={{ minHeight: "100vh" }}>
-      <DashboardClient wallet={wallet} initialMode={initialMode} data={data} />
+      <DashboardClient wallet={wallet} />
     </main>
   );
 }

@@ -2,12 +2,12 @@ import { CleanWallet } from "./clean-wallet";
 import { DashboardSidebar } from "./dashboard-sidebar";
 import { KpiRow } from "./kpi-row";
 import { LossesChart } from "./losses-chart";
-import type { DashboardMock } from "./mock-data";
 import { SandwichTable } from "./sandwich-table";
+import type { DashboardData } from "./view-model";
 
 interface CompleteViewProps {
   wallet: string;
-  data: DashboardMock;
+  data: DashboardData;
 }
 
 export function CompleteView({ wallet, data }: CompleteViewProps) {

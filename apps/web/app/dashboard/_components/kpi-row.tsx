@@ -1,9 +1,9 @@
 import { MonoNumber } from "@get-toasted/ui/mono-number";
 import type { ThreatLevel } from "@get-toasted/ui/types";
-import type { DashboardMock } from "./mock-data";
+import type { DashboardData } from "./view-model";
 
 interface KpiRowProps {
-  data: DashboardMock;
+  data: DashboardData;
 }
 
 export function KpiRow({ data }: KpiRowProps) {
