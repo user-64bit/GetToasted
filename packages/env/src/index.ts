@@ -49,6 +49,12 @@ export const serverEnv = createEnv({
     CORS_ORIGIN: z.string().url().optional(),
     SIWS_DOMAIN: z.string().min(1).optional(),
     PORT: z.coerce.number().default(3001),
+    // Per-scan ceilings — bound how much Helius credit a single wallet
+    // scan can consume before stopping early. The scanner fetches in
+    // reverse chronological order, so hitting either cap means recent
+    // activity was fully covered and only deeper history was truncated.
+    MAX_SCAN_SIGNATURES: z.coerce.number().int().positive().default(1000),
+    MAX_SCAN_SLOTS: z.coerce.number().int().positive().default(200),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

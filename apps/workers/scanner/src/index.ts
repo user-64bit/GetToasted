@@ -1,10 +1,15 @@
 import { Worker, type Job, UnrecoverableError, Queue } from "bullmq";
 import IORedis from "ioredis";
 import { serverEnv } from "@get-toasted/env";
-import { HeliusClient, parseHeliusBatchToSwaps } from "@get-toasted/helius";
+import {
+  HeliusClient,
+  type HeliusEnhancedTransaction,
+} from "@get-toasted/helius";
 import {
   computeLossUsd,
-  detectSandwichesAcrossSlots,
+  detectSandwichesInSlot,
+  TRACKED_DEX_PROGRAM_ID_SET,
+  type ParsedSwap,
   type SandwichDetection,
 } from "@get-toasted/core";
 import {
@@ -16,6 +21,7 @@ import {
 
 type SandwichInsert = Sandwiches.SandwichInsert;
 import {
+  createBlockExpander,
   createBlockTimeResolver,
   createDecimalsResolver,
   createLeaderScheduleCache,
@@ -56,6 +62,7 @@ const decimals = createDecimalsResolver({
   redis: helper,
   rpcUrl: serverEnv.HELIUS_RPC_URL ?? `https://mainnet.helius-rpc.com/?api-key=${serverEnv.HELIUS_API_KEY}`,
 });
+const blockExpander = createBlockExpander({ redis: helper, helius, logger: log });
 
 const webhooks = createWebhookManager({
   helius,
@@ -76,6 +83,8 @@ type ScanJobData = {
 
 const SOFT_BUDGET_MS = 9 * 60 * 1000;
 const BATCH_LIMIT = 100;
+const MAX_SCAN_SIGNATURES = serverEnv.MAX_SCAN_SIGNATURES;
+const MAX_SCAN_SLOTS = serverEnv.MAX_SCAN_SLOTS;
 
 async function enrichDetection(det: SandwichDetection): Promise<SandwichInsert> {
   const { candidate } = det;
@@ -123,6 +132,59 @@ async function enrichDetection(det: SandwichDetection): Promise<SandwichInsert> 
   };
 }
 
+/**
+ * Discover candidate slots from a batch of the wallet's enhanced txs.
+ *
+ * We include a slot only if at least one of the wallet's txs in that slot
+ * has an outer or inner instruction touching a tracked DEX program. This
+ * is cheaper and more accurate than relying on Helius's `type` field,
+ * which misclassifies many real swaps. Skipping non-DEX slots keeps the
+ * block-expansion fan-out bounded for wallets with heavy non-swap
+ * activity (transfers, votes, NFT mints, etc.).
+ */
+function slotsTouchingTrackedDex(txs: HeliusEnhancedTransaction[]): bigint[] {
+  const seen = new Set<string>();
+  const out: bigint[] = [];
+  for (const tx of txs) {
+    if (!walletTxTouchesTrackedDex(tx)) continue;
+    const k = String(tx.slot);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(BigInt(tx.slot));
+  }
+  return out;
+}
+
+function walletTxTouchesTrackedDex(tx: HeliusEnhancedTransaction): boolean {
+  for (const ix of tx.instructions ?? []) {
+    if (TRACKED_DEX_PROGRAM_ID_SET.has(ix.programId)) return true;
+    for (const inner of ix.innerInstructions ?? []) {
+      if (TRACKED_DEX_PROGRAM_ID_SET.has(inner.programId)) return true;
+    }
+  }
+  return false;
+}
+
+function runDetectionPerSlot(swaps: ParsedSwap[]): SandwichDetection[] {
+  // Group swaps by slot manually — `detectSandwichesAcrossSlots` exists for
+  // this but takes a synchronous validatorBySlot resolver, and we resolve
+  // validators downstream in enrichDetection (where we already pay the
+  // cache lookup cost). Calling per-slot keeps the detection input set
+  // small and lets us log slot-level stats if we ever need to debug.
+  const bySlot = new Map<string, ParsedSwap[]>();
+  for (const s of swaps) {
+    const k = s.slot.toString();
+    const bucket = bySlot.get(k);
+    if (bucket) bucket.push(s);
+    else bySlot.set(k, [s]);
+  }
+  const out: SandwichDetection[] = [];
+  for (const slotSwaps of bySlot.values()) {
+    out.push(...detectSandwichesInSlot(slotSwaps, null));
+  }
+  return out;
+}
+
 async function processJob(job: Job<ScanJobData>): Promise<void> {
   const { wallet, jobId } = job.data;
   const jobLog = log.child({ wallet, jobId, bullJobId: job.id });
@@ -144,6 +206,8 @@ async function processJob(job: Job<ScanJobData>): Promise<void> {
     let cursor: string | undefined = job.data.resumeCursor;
     let signaturesProcessed = 0;
     let sandwichesFound = 0;
+    let slotsExpandedTotal = 0;
+    let stopReason: "exhausted" | "max_signatures" | "max_slots" | "budget" = "exhausted";
     const startedAt = Date.now();
 
     while (true) {
@@ -154,35 +218,94 @@ async function processJob(job: Job<ScanJobData>): Promise<void> {
           { wallet, jobId, resumeCursor: cursor },
           { jobId: `${jobId}:resume:${signaturesProcessed}` },
         );
+        stopReason = "budget";
         return;
       }
 
+      // Hard caps to bound Helius credit consumption per scan. Helius
+      // returns reverse-chronological, so hitting either cap means the
+      // *recent* coverage is complete and only older history is truncated.
+      if (signaturesProcessed >= MAX_SCAN_SIGNATURES) {
+        jobLog.info(
+          { signaturesProcessed, cap: MAX_SCAN_SIGNATURES },
+          "scanner: signature cap reached — stopping scan",
+        );
+        stopReason = "max_signatures";
+        break;
+      }
+      if (slotsExpandedTotal >= MAX_SCAN_SLOTS) {
+        jobLog.info(
+          { slotsExpandedTotal, cap: MAX_SCAN_SLOTS },
+          "scanner: slot cap reached — stopping scan",
+        );
+        stopReason = "max_slots";
+        break;
+      }
+
+      // Tighten the page request to whatever's left under the signature
+      // cap, so we don't fetch a final batch of 100 that we can't fully
+      // process. Helius caps `limit` at 100 anyway.
+      const remainingSignatures = MAX_SCAN_SIGNATURES - signaturesProcessed;
+      const pageLimit = Math.min(BATCH_LIMIT, remainingSignatures);
+
+      // We *don't* pass type=SWAP here. Helius classifies a substantial
+      // fraction of real swaps as TRANSFER / UNKNOWN — for some wallets
+      // the SWAP filter returns only a tiny window of recent txs, hiding
+      // older sandwiches entirely (e.g. a wallet with 100s of swaps may
+      // surface only 21 SWAP-classified ones). Instead we fetch all txs
+      // and discover candidate slots by inspecting instruction program ids,
+      // which is authoritative — if a tx didn't touch a tracked DEX, it
+      // can't have been part of a sandwich on this wallet.
       const txs = await helius.getTransactionsForAddress({
         address: wallet,
-        limit: BATCH_LIMIT,
+        limit: pageLimit,
         before: cursor,
-        type: "SWAP",
       });
 
       if (txs.length === 0) break;
 
-      const swaps = parseHeliusBatchToSwaps(txs);
-      const detections = swaps.length > 0
-        ? detectSandwichesAcrossSlots(swaps)
-        : [];
+      // Cap the slots we expand from this batch so we never overshoot
+      // MAX_SCAN_SLOTS in a single block-expansion call.
+      const fullCandidateSlots = slotsTouchingTrackedDex(txs);
+      const slotBudget = MAX_SCAN_SLOTS - slotsExpandedTotal;
+      const candidateSlots = fullCandidateSlots.slice(0, slotBudget);
 
       let inserted = 0;
-      if (detections.length > 0) {
-        const enriched: SandwichInsert[] = [];
-        for (const det of detections) {
-          enriched.push(await enrichDetection(det));
+      if (candidateSlots.length > 0) {
+        // Block expansion fetches every swap in each slot (caching per-slot
+        // in Redis), so the detector sees the full attacker front + victim
+        // + back triple. We then filter detections to those where THIS
+        // wallet is the victim; sandwiches against other victims surfaced
+        // during expansion belong to a different wallet's scan.
+        const allSwaps = await blockExpander.getSwapsForSlots(candidateSlots);
+        const detections = runDetectionPerSlot(allSwaps);
+        const ours = detections.filter((d) => d.candidate.victim.signer === wallet);
+
+        if (ours.length > 0) {
+          const enriched: SandwichInsert[] = [];
+          for (const det of ours) {
+            enriched.push(await enrichDetection(det));
+          }
+          const result = await Sandwiches.batchInsertDetections(db, enriched);
+          inserted = result.inserted.length;
         }
-        const result = await Sandwiches.batchInsertDetections(db, enriched);
-        inserted = result.inserted.length;
+
+        jobLog.debug(
+          {
+            txsFetched: txs.length,
+            slotsExpanded: candidateSlots.length,
+            blockSwapsTotal: allSwaps.length,
+            detectionsFound: detections.length,
+            detectionsForThisWallet: ours.length,
+            insertedCount: inserted,
+          },
+          "scanner: batch detection complete",
+        );
       }
 
       signaturesProcessed += txs.length;
       sandwichesFound += inserted;
+      slotsExpandedTotal += candidateSlots.length;
 
       const lastSig = txs[txs.length - 1]?.signature;
       cursor = lastSig;
@@ -224,7 +347,13 @@ async function processJob(job: Job<ScanJobData>): Promise<void> {
     }
 
     jobLog.info(
-      { signaturesProcessed, sandwichesFound, durationMs: Date.now() - startedAt },
+      {
+        signaturesProcessed,
+        sandwichesFound,
+        slotsExpandedTotal,
+        stopReason,
+        durationMs: Date.now() - startedAt,
+      },
       "scanner: scan complete",
     );
   } catch (err) {

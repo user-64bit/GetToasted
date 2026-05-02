@@ -52,6 +52,7 @@ wallets.get("/:address", zValidator("param", AddressParam), async (c) => {
       firstAttackAt: null,
       lastAttackAt: null,
       scanProgress: null,
+      scanError: null,
     });
   }
 
@@ -61,6 +62,7 @@ wallets.get("/:address", zValidator("param", AddressParam), async (c) => {
     cursor: string | null;
     progressPct: number;
   } | null = null;
+  let scanError: string | null = null;
 
   if (wallet.scanStatus === "scanning" || wallet.scanStatus === "pending") {
     const liveRaw = await redis.get(redisKeys.scanProgress(address));
@@ -89,6 +91,11 @@ wallets.get("/:address", zValidator("param", AddressParam), async (c) => {
         progressPct: job.progressPct,
       };
     }
+  } else if (wallet.scanStatus === "failed") {
+    // Surface the worker's failure reason so the dashboard can show "scan
+    // failed: <reason>" instead of silently rendering a clean wallet.
+    const job = await ScanJobsQ.getLatestScanJobForWallet(db, address);
+    scanError = job?.error ?? "Unknown scan failure";
   }
 
   return c.json({
@@ -102,6 +109,7 @@ wallets.get("/:address", zValidator("param", AddressParam), async (c) => {
     firstAttackAt: wallet.firstAttackAt,
     lastAttackAt: wallet.lastAttackAt,
     scanProgress,
+    scanError,
   });
 });
 

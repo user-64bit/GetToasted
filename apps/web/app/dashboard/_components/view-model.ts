@@ -10,6 +10,7 @@ export interface DashboardData {
   series: { month: string; loss: number }[];
   transactionsAnalyzed: number;
   referenceNow: number;
+  lastScanAt: string | null;
 }
 
 export function attackerDisplayName(address: string): string {
@@ -89,6 +90,7 @@ export function buildDashboardData(
     series,
     transactionsAnalyzed,
     referenceNow,
+    lastScanAt: summary.lastScanAt ?? null,
   };
 }
 

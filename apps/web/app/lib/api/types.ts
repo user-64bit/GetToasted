@@ -20,6 +20,7 @@ export interface WalletSummary {
   firstAttackAt: string | null;
   lastAttackAt: string | null;
   scanProgress: ScanProgress | null;
+  scanError: string | null;
   firstSeenAt?: string | null;
   lastScanAt?: string | null;
   totalTxCount?: number;

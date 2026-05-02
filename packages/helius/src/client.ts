@@ -66,6 +66,17 @@ export type HeliusInstruction = {
   }>;
 };
 
+export type HeliusAccountData = {
+  account: string;
+  nativeBalanceChange?: number;
+  tokenBalanceChanges?: Array<{
+    userAccount?: string;
+    tokenAccount?: string;
+    rawTokenAmount?: HeliusTokenAmount;
+    mint?: string;
+  }>;
+};
+
 export type HeliusEnhancedTransaction = {
   signature: string;
   slot: number;
@@ -76,6 +87,7 @@ export type HeliusEnhancedTransaction = {
   fee: number;
   tokenTransfers?: HeliusTokenTransfer[];
   nativeTransfers?: HeliusNativeTransfer[];
+  accountData?: HeliusAccountData[];
   events?: { swap?: HeliusSwapEvent };
   instructions?: HeliusInstruction[];
   transactionError: unknown | null;
@@ -83,6 +95,46 @@ export type HeliusEnhancedTransaction = {
 
 // Backward-compat alias used elsewhere in the codebase
 export type HeliusParsedTx = HeliusEnhancedTransaction;
+
+/**
+ * Subset of the Solana RPC `getBlock` response we actually use.
+ * Encoded with `jsonParsed`, transactionDetails: "full".
+ *
+ * We keep this loose: the RPC schema is large, and we only ever read
+ * `transactions[].transaction.signatures[0]` and the program ids of the
+ * outer instructions. Any field-name change at the RPC layer will surface
+ * as a parse miss in the block expander rather than a hard type error.
+ */
+export type HeliusBlockInstruction = {
+  programId?: string;
+  programIdIndex?: number;
+  parsed?: unknown;
+  accounts?: string[];
+};
+
+export type HeliusBlockTransaction = {
+  transaction: {
+    signatures: string[];
+    message: {
+      accountKeys?: Array<string | { pubkey: string; signer?: boolean; writable?: boolean }>;
+      instructions?: HeliusBlockInstruction[];
+      addressTableLookups?: Array<{ accountKey: string }>;
+    };
+  };
+  meta?: {
+    err?: unknown;
+    innerInstructions?: Array<{ index: number; instructions: HeliusBlockInstruction[] }>;
+  };
+  version?: number | "legacy";
+};
+
+export type HeliusBlock = {
+  blockhash: string;
+  parentSlot: number;
+  blockTime: number | null;
+  blockHeight: number | null;
+  transactions: HeliusBlockTransaction[];
+};
 
 export type WebhookConfig = {
   webhookURL: string;
@@ -172,9 +224,16 @@ export class HeliusClient {
     if (!res.ok) {
       throw new HeliusServerError(res.status, await res.text(), { method });
     }
-    const json = (await res.json()) as { result?: T; error?: { message: string } };
+    const json = (await res.json()) as {
+      result?: T;
+      error?: { code?: number; message: string };
+    };
     if (json.error) {
-      throw new HeliusError("HELIUS_RPC_ERROR", json.error.message, { method });
+      const err = new HeliusError("HELIUS_RPC_ERROR", json.error.message, {
+        method,
+        rpcCode: json.error.code,
+      });
+      throw err;
     }
     if (json.result === undefined) {
       throw new HeliusError("HELIUS_RPC_NO_RESULT", `No result for ${method}`, { method });
@@ -250,6 +309,49 @@ export class HeliusClient {
     current: Array<{ votePubkey: string; nodePubkey: string; activatedStake: number }>;
   }> {
     return this.rpcCall("getVoteAccounts", []);
+  }
+
+  /**
+   * Fetch a confirmed block. Returns null when the slot was skipped, the block
+   * was pruned, or the leader produced no block — these are all expected and
+   * not retryable. Other errors (network, server) propagate as HeliusError.
+   *
+   * Uses transactionDetails: "full" + jsonParsed encoding so the caller can
+   * inspect program ids per instruction without an extra round trip.
+   */
+  async getBlock(
+    slot: bigint,
+    opts: {
+      transactionDetails?: "full" | "signatures" | "accounts" | "none";
+      maxSupportedTransactionVersion?: number;
+      rewards?: boolean;
+      commitment?: "confirmed" | "finalized";
+    } = {},
+  ): Promise<HeliusBlock | null> {
+    const cfg = {
+      encoding: "jsonParsed" as const,
+      transactionDetails: opts.transactionDetails ?? "full",
+      maxSupportedTransactionVersion: opts.maxSupportedTransactionVersion ?? 0,
+      rewards: opts.rewards ?? false,
+      commitment: opts.commitment ?? "confirmed",
+    };
+
+    try {
+      return await this.rpcCall<HeliusBlock | null>("getBlock", [Number(slot), cfg]);
+    } catch (err) {
+      if (err instanceof HeliusError && err.code === "HELIUS_RPC_ERROR") {
+        const rpcCode = (err.context?.rpcCode as number | undefined) ?? 0;
+        // Skipped / missing / not-available block codes — treat as "no block".
+        // -32004: Block not available (slot was skipped or block pruned)
+        // -32007: Slot was skipped
+        // -32009: Slot N was skipped, or missing in long-term storage
+        // -32014: Block not available for slot N
+        if (rpcCode === -32004 || rpcCode === -32007 || rpcCode === -32009 || rpcCode === -32014) {
+          return null;
+        }
+      }
+      throw err;
+    }
   }
 
   async createWebhook(config: WebhookConfig): Promise<string> {

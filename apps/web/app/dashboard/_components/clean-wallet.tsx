@@ -1,10 +1,17 @@
 import Link from "next/link";
+import { LastScanned } from "./last-scanned";
 
 interface CleanWalletProps {
+  wallet: string;
   transactionsAnalyzed: number;
+  lastScanAt: string | null;
 }
 
-export function CleanWallet({ transactionsAnalyzed }: CleanWalletProps) {
+export function CleanWallet({
+  wallet,
+  transactionsAnalyzed,
+  lastScanAt,
+}: CleanWalletProps) {
   return (
     <div
       className="flex items-center justify-center"
@@ -69,6 +76,10 @@ export function CleanWallet({ transactionsAnalyzed }: CleanWalletProps) {
           </span>{" "}
           transactions analyzed.
         </p>
+
+        <div className="mt-6">
+          <LastScanned wallet={wallet} lastScanAt={lastScanAt} />
+        </div>
 
         <div className="flex flex-wrap gap-3 justify-center mt-10">
           <button
