@@ -68,7 +68,7 @@ export async function updateScanJobProgress(
 export async function bumpScanJobProgress(
   db: DbExecutor,
   id: string,
-  delta: { signatures: number; sandwiches: number },
+  delta: { signatures: number; sandwiches: number; progressPct?: number },
   cursor: string | null,
 ): Promise<void> {
   await db
@@ -76,6 +76,7 @@ export async function bumpScanJobProgress(
     .set({
       signaturesProcessed: sql`${scanJobs.signaturesProcessed} + ${delta.signatures}`,
       sandwichesFound: sql`${scanJobs.sandwichesFound} + ${delta.sandwiches}`,
+      ...(delta.progressPct !== undefined ? { progressPct: delta.progressPct } : {}),
       cursor,
     })
     .where(eq(scanJobs.id, id));

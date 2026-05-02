@@ -24,6 +24,16 @@ export function ScanningView({ wallet, summary }: ScanningViewProps) {
   const transactionsAnalyzed = progress?.signaturesProcessed ?? 0;
   const sandwichesFound = progress?.sandwichesFound ?? summary.sandwichCount;
 
+  // "pending" = queued, worker hasn't started; "scanning" but 0 sigs = worker
+  // is in its first Helius call. Surfacing this so 0/0/0% isn't a mystery.
+  const isQueued =
+    summary.scanStatus === "pending" || (progress == null && transactionsAnalyzed === 0);
+  const status = isQueued
+    ? "Queued — waiting for scanner worker"
+    : transactionsAnalyzed === 0
+    ? "Fetching first batch from Helius"
+    : undefined;
+
   const recent = (sandwichesQ.data?.data ?? []).map(rowToSandwich);
 
   return (
@@ -37,6 +47,7 @@ export function ScanningView({ wallet, summary }: ScanningViewProps) {
           sandwichesFound={sandwichesFound}
           transactionsAnalyzed={transactionsAnalyzed}
           walletAddress={shortAddress(wallet)}
+          status={status}
         />
 
         {recent.length > 0 && (

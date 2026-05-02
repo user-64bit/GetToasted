@@ -93,8 +93,51 @@ describe("parseHeliusTxToSwaps — single hop Raydium", () => {
     expect(s.signer).toBe("ATTACKER");
   });
 
-  it("returns empty for non-SWAP type", () => {
-    expect(parseHeliusTxToSwaps(baseTx({ type: "TRANSFER" }))).toEqual([]);
+  it("parses non-SWAP type when a tracked DEX instruction is present (Helius mislabels many real swaps as TRANSFER/UNKNOWN)", () => {
+    const tx = baseTx({
+      type: "TRANSFER",
+      feePayer: "VICTIM",
+      instructions: [
+        {
+          programId: RAYDIUM_AMM_V4,
+          accounts: [RAYDIUM_AMM_V4, "POOL_ACC"],
+          data: "",
+          innerInstructions: [],
+        },
+      ],
+      // No `events.swap` — forces the balance-delta reconstruction path.
+      events: {},
+      accountData: [
+        {
+          account: "VICTIM_USDC_ATA",
+          tokenBalanceChanges: [
+            {
+              userAccount: "VICTIM",
+              mint: USDC,
+              rawTokenAmount: { tokenAmount: "-1000000000", decimals: 6 },
+            },
+          ],
+        },
+        {
+          account: "VICTIM_SOL_ATA",
+          tokenBalanceChanges: [
+            {
+              userAccount: "VICTIM",
+              mint: SOL,
+              rawTokenAmount: { tokenAmount: "5000000", decimals: 9 },
+            },
+          ],
+        },
+      ],
+    });
+    const swaps = parseHeliusTxToSwaps(tx);
+    expect(swaps).toHaveLength(1);
+    expect(swaps[0]!.dex).toBe("raydium_amm_v4");
+    expect(swaps[0]!.inputMint).toBe(USDC);
+    expect(swaps[0]!.outputMint).toBe(SOL);
+    expect(swaps[0]!.inputAmount).toBe(1_000_000_000n);
+    expect(swaps[0]!.outputAmount).toBe(5_000_000n);
+    expect(swaps[0]!.signer).toBe("VICTIM");
   });
 
   it("returns empty when no tracked DEX is touched", () => {

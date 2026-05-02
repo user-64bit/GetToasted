@@ -268,7 +268,19 @@ export function parseHeliusTxToSwaps(
   tx: HeliusEnhancedTransaction,
   opts: ParseOptions = {},
 ): ParsedSwap[] {
-  if (tx.type !== "SWAP") return [];
+  // We deliberately do NOT gate on `tx.type === "SWAP"`. Helius's enhanced
+  // classifier mislabels a large fraction of real swaps as TRANSFER /
+  // UNKNOWN (Meteora DAMM v2, Pump bonding-curve buys/sells, several
+  // aggregator wrappers). The block-expander has already filtered to txs
+  // whose outer or inner instructions touch a tracked DEX program — that's
+  // authoritative. Re-applying the type-name filter here was dropping every
+  // sandwich victim whose tx Helius mislabeled, making affected wallets
+  // surface as "clean" even when they'd been sandwiched.
+  //
+  // Whether a tx parses as a swap is now determined entirely by:
+  //   1. presence of a tracked DEX program in instructions (pickProgramAndPool)
+  //   2. ability to extract input/output mints + amounts from either the
+  //      structured event or the wallet's tokenBalanceChanges.
 
   const failed = tx.transactionError !== null;
   const tipAccounts = opts.jitoTipAccounts ?? JITO_TIP_ACCOUNTS_SEED;

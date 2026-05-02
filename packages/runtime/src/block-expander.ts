@@ -223,8 +223,15 @@ export function createBlockExpander(opts: Opts) {
      * `ParsedSwap[]` across all of them. Slots are processed sequentially to
      * keep within Helius's rate limit; parallelism would just stall on the
      * same token bucket inside HeliusClient.
+     *
+     * Pass `opts.deadline` (epoch ms) to stop early — block expansion of a
+     * busy DEX wallet can take minutes, so the scanner uses this to enforce
+     * its own time budget. We return whatever was expanded before the cut.
      */
-    async getSwapsForSlots(slots: Iterable<bigint>): Promise<ParsedSwap[]> {
+    async getSwapsForSlots(
+      slots: Iterable<bigint>,
+      opts?: { deadline?: number },
+    ): Promise<ParsedSwap[]> {
       const unique = new Set<string>();
       const ordered: bigint[] = [];
       for (const s of slots) {
@@ -235,9 +242,18 @@ export function createBlockExpander(opts: Opts) {
       }
 
       const all: ParsedSwap[] = [];
+      let expanded = 0;
       for (const slot of ordered) {
+        if (opts?.deadline !== undefined && Date.now() > opts.deadline) {
+          log.warn(
+            { expanded, remaining: ordered.length - expanded },
+            "block-expander: deadline reached, stopping early",
+          );
+          break;
+        }
         const swaps = await getBlockSwaps(slot);
         for (const s of swaps) all.push(s);
+        expanded += 1;
       }
       return all;
     },

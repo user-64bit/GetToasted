@@ -81,7 +81,10 @@ type ScanJobData = {
   resumeCursor?: string;
 };
 
-const SOFT_BUDGET_MS = 9 * 60 * 1000;
+// Hard 30s cap — when hit, we break out of the scan loop and complete
+// with whatever was found so far. No requeue. Keeps Helius credit usage
+// bounded while we iterate on the rest of the pipeline.
+const MAX_SCAN_DURATION_MS = 30_000;
 const BATCH_LIMIT = 100;
 const MAX_SCAN_SIGNATURES = serverEnv.MAX_SCAN_SIGNATURES;
 const MAX_SCAN_SLOTS = serverEnv.MAX_SCAN_SLOTS;
@@ -209,17 +212,16 @@ async function processJob(job: Job<ScanJobData>): Promise<void> {
     let slotsExpandedTotal = 0;
     let stopReason: "exhausted" | "max_signatures" | "max_slots" | "budget" = "exhausted";
     const startedAt = Date.now();
+    const deadline = startedAt + MAX_SCAN_DURATION_MS;
 
     while (true) {
-      if (Date.now() - startedAt > SOFT_BUDGET_MS) {
-        jobLog.info({ cursor, signaturesProcessed }, "soft budget hit — requeueing");
-        await scanQueue.add(
-          "scan",
-          { wallet, jobId, resumeCursor: cursor },
-          { jobId: `${jobId}:resume:${signaturesProcessed}` },
+      if (Date.now() - startedAt > MAX_SCAN_DURATION_MS) {
+        jobLog.info(
+          { cursor, signaturesProcessed, sandwichesFound, durationMs: MAX_SCAN_DURATION_MS },
+          "scanner: time budget hit — completing with partial results",
         );
         stopReason = "budget";
-        return;
+        break;
       }
 
       // Hard caps to bound Helius credit consumption per scan. Helius
@@ -277,13 +279,20 @@ async function processJob(job: Job<ScanJobData>): Promise<void> {
         // + back triple. We then filter detections to those where THIS
         // wallet is the victim; sandwiches against other victims surfaced
         // during expansion belong to a different wallet's scan.
-        const allSwaps = await blockExpander.getSwapsForSlots(candidateSlots);
+        //
+        // Pass `deadline` so a DEX-heavy wallet (100s of candidate slots)
+        // doesn't spend minutes inside this single call before we get the
+        // chance to re-check the time budget.
+        const allSwaps = await blockExpander.getSwapsForSlots(candidateSlots, { deadline });
         const detections = runDetectionPerSlot(allSwaps);
         const ours = detections.filter((d) => d.candidate.victim.signer === wallet);
 
         if (ours.length > 0) {
           const enriched: SandwichInsert[] = [];
           for (const det of ours) {
+            // Bail out of enrichment too if we've blown past the deadline —
+            // each enrichDetection makes RPC + price calls.
+            if (Date.now() > deadline) break;
             enriched.push(await enrichDetection(det));
           }
           const result = await Sandwiches.batchInsertDetections(db, enriched);
@@ -310,19 +319,26 @@ async function processJob(job: Job<ScanJobData>): Promise<void> {
       const lastSig = txs[txs.length - 1]?.signature;
       cursor = lastSig;
 
+      // Cap at 95% — completeScanJob writes the final 100. Both caps (sigs
+      // and slots) move the bar; whichever is closer to its limit wins.
+      // Round to int because progress_pct is a smallint column.
+      const sigPct = (signaturesProcessed / MAX_SCAN_SIGNATURES) * 100;
+      const slotPct = (slotsExpandedTotal / MAX_SCAN_SLOTS) * 100;
+      const progressPct = Math.min(95, Math.round(Math.max(sigPct, slotPct)));
+
       await ScanJobsQ.bumpScanJobProgress(
         db,
         jobId,
-        { signatures: txs.length, sandwiches: inserted },
+        { signatures: txs.length, sandwiches: inserted, progressPct },
         cursor ?? null,
       );
       await helper.set(
         redisKeys.scanProgress(wallet),
-        JSON.stringify({ signaturesProcessed, sandwichesFound, cursor }),
+        JSON.stringify({ signaturesProcessed, sandwichesFound, cursor, progressPct }),
         "EX",
         60 * 60,
       );
-      await job.updateProgress(Math.min(95, signaturesProcessed % 100));
+      await job.updateProgress(progressPct);
 
       jobLog.debug(
         { signaturesProcessed, sandwichesFound, batchSize: txs.length },

@@ -73,12 +73,13 @@ wallets.get("/:address", zValidator("param", AddressParam), async (c) => {
           signaturesProcessed: number;
           sandwichesFound: number;
           cursor?: string;
+          progressPct?: number;
         };
         scanProgress = {
           signaturesProcessed: live.signaturesProcessed,
           sandwichesFound: live.sandwichesFound,
           cursor: live.cursor ?? null,
-          progressPct: job?.progressPct ?? 0,
+          progressPct: live.progressPct ?? job?.progressPct ?? 0,
         };
       } catch {
         scanProgress = null;
