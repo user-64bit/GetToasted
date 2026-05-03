@@ -105,7 +105,21 @@ app.onError((err, c) => {
     { err, path: c.req.path, method: c.req.method },
     "api: unhandled route error",
   );
-  return c.json({ error: "internal_server_error" }, 500);
+  // Surface the underlying error message in non-prod so the dashboard
+  // can render it instead of an opaque "internal_server_error". Common
+  // case it helps debug: postgres "column does not exist" when a
+  // migration hasn't been applied. We never expose error.stack and we
+  // never expose anything in production — `NODE_ENV=production` keeps
+  // the response shape stable for clients in real deploys.
+  const isProd = process.env.NODE_ENV === "production";
+  const detail =
+    isProd || !(err instanceof Error)
+      ? undefined
+      : err.message.slice(0, 500); // bound the payload
+  return c.json(
+    { error: "internal_server_error", ...(detail ? { detail } : {}) },
+    500,
+  );
 });
 
 app.notFound((c) => c.json({ error: "not_found", path: c.req.path }, 404));

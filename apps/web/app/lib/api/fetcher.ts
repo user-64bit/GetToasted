@@ -31,12 +31,20 @@ export async function apiFetch<T>(path: string, init: JsonInit = {}): Promise<T>
   const parsed: unknown = text ? safeJsonParse(text) : undefined;
 
   if (!res.ok) {
-    const errBody = (parsed ?? {}) as { error?: string; code?: string };
-    throw new ApiError(
-      res.status,
-      errBody.error ?? `HTTP ${res.status}`,
-      errBody.code,
-    );
+    const errBody = (parsed ?? {}) as {
+      error?: string;
+      code?: string;
+      // Non-prod API responses include a `detail` field with the
+      // underlying error message. Surface it in the thrown ApiError so
+      // the dashboard can show e.g. "column foo does not exist" instead
+      // of just "internal_server_error".
+      detail?: string;
+    };
+    const baseMessage = errBody.error ?? `HTTP ${res.status}`;
+    const message = errBody.detail
+      ? `${baseMessage}: ${errBody.detail}`
+      : baseMessage;
+    throw new ApiError(res.status, message, errBody.code);
   }
 
   return parsed as T;
