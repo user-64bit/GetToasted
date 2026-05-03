@@ -86,6 +86,16 @@ export const detectedSandwiches = pgTable(
     failed: boolean("failed").notNull().default(false),
     isKnownBot: boolean("is_known_bot").notNull().default(false),
     knownBotName: text("known_bot_name"),
+    // Detection metadata — added by the layered classifier rewrite. The
+    // legacy detector wrote 'legacy' for these so older rows are
+    // queryable without nulls.
+    detectionLayer: text("detection_layer").notNull().default("legacy"),
+    lossMethod: text("loss_method"),
+    lossConfidence: numeric("loss_confidence", { precision: 3, scale: 2 }),
+    // Loss in output-token base units — stored alongside the USD figure
+    // so the UI can show "loss: 142 TOKEN (≈ unknown USD)" for long-tail
+    // mints with no Jupiter price.
+    lossOutputAmount: numeric("loss_output_amount", { precision: 40, scale: 0 }),
     detectedAt: timestamp("detected_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
