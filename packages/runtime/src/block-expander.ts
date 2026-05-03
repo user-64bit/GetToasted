@@ -2,6 +2,7 @@ import type { Redis } from "ioredis";
 import {
   TRACKED_DEX_PROGRAM_ID_SET,
   type ParsedSwap,
+  type PoolReserves,
 } from "@get-toasted/core";
 import {
   parseHeliusTxToSwaps,
@@ -9,6 +10,7 @@ import {
   type HeliusBlockTransaction,
   type HeliusClient,
   type HeliusEnhancedTransaction,
+  type HeliusTokenBalanceSnapshot,
 } from "@get-toasted/helius";
 import { logger as rootLogger, type Logger } from "./logger.js";
 import {
@@ -183,6 +185,22 @@ export function createBlockExpander(opts: Opts) {
 
     if (candidates.length === 0) return [];
 
+    // Build per-signature reserve hints from the raw block. We do this
+    // *before* the enhanced round-trip because the enhanced API discards
+    // pre/post token balances, but they're already in the block we just
+    // fetched. CPMM loss reconstruction needs reservesBefore — without
+    // this step the loss dispatcher always falls through to the back-run
+    // proxy method (lower confidence).
+    const reservesBySig = new Map<string, { before: PoolReserves; after: PoolReserves }>();
+    for (let i = 0; i < txs.length; i++) {
+      const blockTx = txs[i];
+      if (!blockTx) continue;
+      const sig = blockTx.transaction?.signatures?.[0];
+      if (!sig) continue;
+      const reserves = inferPoolReservesFromTx(blockTx);
+      if (reserves) reservesBySig.set(sig, reserves);
+    }
+
     // Helius enhanced caps at 100 sigs per call. Batch sequentially —
     // parallelism here gains us nothing because the underlying token
     // bucket is shared, and serializing keeps memory pressure flat.
@@ -198,7 +216,36 @@ export function createBlockExpander(opts: Opts) {
       const trueIndex = sigToIndex.get(tx.signature);
       if (trueIndex === undefined) continue; // Shouldn't happen; defensive.
       const parsed = parseHeliusTxToSwaps(tx, { txIndexInBlock: trueIndex });
-      for (const ps of parsed) out.push(ps);
+      const reserves = reservesBySig.get(tx.signature);
+      // Only attach reserves to single-hop swaps. A Jupiter multi-hop
+      // emits one ParsedSwap per leg, but our reserve inference matches
+      // mints across the whole tx — it would be wrong to apply the same
+      // pair of (tokenA, tokenB) reserves to every leg of a 3-hop route.
+      if (parsed.length === 1 && reserves) {
+        const ps = parsed[0]!;
+        // Mint sanity: only attach reserves whose mint pair matches the
+        // swap's input/output mints. Otherwise the inference picked up
+        // a different token pair (rare, but possible on aggregator txs).
+        if (
+          (reserves.before.tokenAMint === ps.inputMint &&
+            reserves.before.tokenBMint === ps.outputMint) ||
+          (reserves.before.tokenAMint === ps.outputMint &&
+            reserves.before.tokenBMint === ps.inputMint)
+        ) {
+          ps.poolReservesBefore = reserves.before;
+          ps.poolReservesAfter = reserves.after;
+        }
+      }
+      for (const ps of parsed) {
+        // Normalize: explicit `null` when reserves weren't attached, so
+        // the in-memory shape matches the post-cache shape (deserializer
+        // always emits null). Without this, the first call to a slot
+        // returns `undefined` for these fields and the second call
+        // returns `null` — same data, but `expect(a).toEqual(b)` fails.
+        if (ps.poolReservesBefore === undefined) ps.poolReservesBefore = null;
+        if (ps.poolReservesAfter === undefined) ps.poolReservesAfter = null;
+        out.push(ps);
+      }
     }
 
     out.sort((a, b) => a.txIndexInBlock - b.txIndexInBlock);
@@ -286,16 +333,174 @@ function instructionsHitTrackedDex(ixs: HeliusBlockInstruction[]): boolean {
   return false;
 }
 
+/**
+ * Best-effort: infer the pool's two vault reserves before/after a tx by
+ * intersecting `meta.preTokenBalances` and `meta.postTokenBalances`.
+ *
+ * Heuristic: a pool vault is a token account whose `owner` is NOT the
+ * fee payer (the swap's signer). We pick the two largest non-signer
+ * balances by mint and treat them as the pool's two vaults.
+ *
+ * This works for single-pool swaps (Raydium AMM v4, Orca classic,
+ * Meteora classic, PumpSwap). It does NOT work for:
+ *   - Multi-hop Jupiter routes — multiple pools in one tx, the heuristic
+ *     can't tell them apart. The caller guards against this by only
+ *     attaching reserves to single-hop ParsedSwaps.
+ *   - CLMM pools with virtual reserves — reserve numbers don't reflect
+ *     spot price the way x·y=k does. Loss math falls through to proxy.
+ *   - Pools where the bot routes through a mid-account (rare).
+ *
+ * Returns null when we can't pin down two distinct mints, when balance
+ * snapshots are missing, or when the snapshot reflects a non-swap
+ * change (e.g. liquidity provision). The caller falls back to the
+ * back-run profit proxy in that case — exactly per the spec's loss
+ * decision tree.
+ */
+function inferPoolReservesFromTx(
+  tx: HeliusBlockTransaction,
+): { before: PoolReserves; after: PoolReserves } | null {
+  const pre = tx.meta?.preTokenBalances ?? [];
+  const post = tx.meta?.postTokenBalances ?? [];
+  if (pre.length === 0 || post.length === 0) return null;
+
+  const accountKeys = tx.transaction?.message?.accountKeys ?? [];
+  const feePayer = readAccountKey(accountKeys[0]);
+  if (!feePayer) return null;
+
+  // Index post-balances by accountIndex for O(1) lookup when pairing.
+  const postByIdx = new Map<number, HeliusTokenBalanceSnapshot>();
+  for (const p of post) postByIdx.set(p.accountIndex, p);
+
+  // For each unique mint in preBalances, pick the entry with the
+  // largest balance whose owner != fee payer. That's the pool's vault.
+  // Wrapped-SOL ATAs owned by the fee payer get excluded automatically.
+  const byMint = new Map<
+    string,
+    { pre: HeliusTokenBalanceSnapshot; post: HeliusTokenBalanceSnapshot }
+  >();
+  for (const p of pre) {
+    if (!p.mint) continue;
+    if (p.owner === feePayer) continue;
+    const matchingPost = postByIdx.get(p.accountIndex);
+    if (!matchingPost) continue;
+    const preAmt = parseAmountSafe(p.uiTokenAmount?.amount);
+    if (preAmt === null) continue;
+    const existing = byMint.get(p.mint);
+    if (!existing) {
+      byMint.set(p.mint, { pre: p, post: matchingPost });
+      continue;
+    }
+    const existingAmt = parseAmountSafe(existing.pre.uiTokenAmount?.amount) ?? 0n;
+    if (preAmt > existingAmt) {
+      byMint.set(p.mint, { pre: p, post: matchingPost });
+    }
+  }
+
+  // Need exactly two distinct mints to form a pair. If a tx involves
+  // three+ tokens (multi-hop) we don't trust the inference and bail.
+  if (byMint.size !== 2) return null;
+
+  const [first, second] = [...byMint.entries()];
+  if (!first || !second) return null;
+
+  const [mintA, { pre: preA, post: postA }] = first;
+  const [mintB, { pre: preB, post: postB }] = second;
+
+  const preAmtA = parseAmountSafe(preA.uiTokenAmount?.amount);
+  const preAmtB = parseAmountSafe(preB.uiTokenAmount?.amount);
+  const postAmtA = parseAmountSafe(postA.uiTokenAmount?.amount);
+  const postAmtB = parseAmountSafe(postB.uiTokenAmount?.amount);
+  if (
+    preAmtA === null ||
+    preAmtB === null ||
+    postAmtA === null ||
+    postAmtB === null
+  ) {
+    return null;
+  }
+
+  return {
+    before: {
+      tokenA: preAmtA,
+      tokenB: preAmtB,
+      tokenAMint: mintA,
+      tokenBMint: mintB,
+    },
+    after: {
+      tokenA: postAmtA,
+      tokenB: postAmtB,
+      tokenAMint: mintA,
+      tokenBMint: mintB,
+    },
+  };
+}
+
+function readAccountKey(
+  key: string | { pubkey: string } | undefined,
+): string | null {
+  if (!key) return null;
+  if (typeof key === "string") return key;
+  return key.pubkey ?? null;
+}
+
+function parseAmountSafe(amount: string | undefined): bigint | null {
+  if (amount === undefined || amount === null) return null;
+  try {
+    return BigInt(amount);
+  } catch {
+    return null;
+  }
+}
+
+type SerializedReserves = {
+  tokenA: string;
+  tokenB: string;
+  tokenAMint: string;
+  tokenBMint: string;
+};
+
 type SerializedSwap = Omit<
   ParsedSwap,
-  "slot" | "blockTime" | "inputAmount" | "outputAmount" | "jitoTipLamports"
+  | "slot"
+  | "blockTime"
+  | "inputAmount"
+  | "outputAmount"
+  | "jitoTipLamports"
+  | "poolReservesBefore"
+  | "poolReservesAfter"
 > & {
   slot: string;
   blockTime: string;
   inputAmount: string;
   outputAmount: string;
   jitoTipLamports: string | null;
+  poolReservesBefore?: SerializedReserves | null;
+  poolReservesAfter?: SerializedReserves | null;
 };
+
+function serializeReserves(r: PoolReserves | null | undefined): SerializedReserves | null {
+  if (!r) return null;
+  return {
+    tokenA: r.tokenA.toString(),
+    tokenB: r.tokenB.toString(),
+    tokenAMint: r.tokenAMint,
+    tokenBMint: r.tokenBMint,
+  };
+}
+
+function deserializeReserves(r: SerializedReserves | null | undefined): PoolReserves | null {
+  if (!r) return null;
+  try {
+    return {
+      tokenA: BigInt(r.tokenA),
+      tokenB: BigInt(r.tokenB),
+      tokenAMint: r.tokenAMint,
+      tokenBMint: r.tokenBMint,
+    };
+  } catch {
+    return null;
+  }
+}
 
 function serialize(swaps: ParsedSwap[]): string {
   const payload: SerializedSwap[] = swaps.map((s) => ({
@@ -305,6 +510,8 @@ function serialize(swaps: ParsedSwap[]): string {
     inputAmount: s.inputAmount.toString(),
     outputAmount: s.outputAmount.toString(),
     jitoTipLamports: s.jitoTipLamports === null ? null : s.jitoTipLamports.toString(),
+    poolReservesBefore: serializeReserves(s.poolReservesBefore),
+    poolReservesAfter: serializeReserves(s.poolReservesAfter),
   }));
   return JSON.stringify(payload);
 }
@@ -320,6 +527,8 @@ function safeDeserialize(raw: string): ParsedSwap[] | null {
       inputAmount: BigInt(s.inputAmount),
       outputAmount: BigInt(s.outputAmount),
       jitoTipLamports: s.jitoTipLamports === null ? null : BigInt(s.jitoTipLamports),
+      poolReservesBefore: deserializeReserves(s.poolReservesBefore),
+      poolReservesAfter: deserializeReserves(s.poolReservesAfter),
     }));
   } catch {
     return null;

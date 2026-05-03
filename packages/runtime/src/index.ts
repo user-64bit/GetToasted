@@ -6,3 +6,5 @@ export * from "./block-time.js";
 export * from "./block-expander.js";
 export * from "./webhook-manager.js";
 export * from "./decimals-cache.js";
+export * from "./jito-bundle.js";
+export * from "./detection-enricher.js";

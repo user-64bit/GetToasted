@@ -15,6 +15,11 @@ export const redisKeys = {
   decimals: (mint: string) => `mint:dec:${mint}`,
   webhookId: () => `helius:webhookId`,
   statsCache: () => `stats:global`,
+  // Jito bundle membership keyed by signature. Bundles are immutable
+  // once landed, so we cache for 7 days. A negative result (signature
+  // not in any bundle) is also cached — many sandwich victims aren't
+  // bundled, and re-querying the bundle API for every miss is wasteful.
+  jitoBundleBySig: (sig: string) => `jito:bundle:sig:${sig}`,
 } as const;
 
 export const SCAN_LOCK_TTL_SECONDS = 600;
@@ -32,3 +37,9 @@ export const BLOCK_SWAPS_MISSING_TTL_SECONDS = 6 * 60 * 60;
 // In-flight lock so concurrent scanners don't both hammer getBlock for the
 // same slot. TTL is short — if the holder dies we want to retry quickly.
 export const BLOCK_SWAPS_LOCK_TTL_SECONDS = 90;
+// Jito bundle membership cache — landed bundles never change, so we keep
+// hits for 7 days. Negative results (sig not in a bundle) get a shorter
+// TTL because the same sig may eventually appear in a backfilled bundle
+// index, and we'd rather pay the API cost than persist a wrong miss.
+export const JITO_BUNDLE_HIT_TTL_SECONDS = 7 * 24 * 60 * 60;
+export const JITO_BUNDLE_MISS_TTL_SECONDS = 60 * 60;
