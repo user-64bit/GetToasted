@@ -112,6 +112,26 @@ export type HeliusBlockInstruction = {
   accounts?: string[];
 };
 
+// `meta.preTokenBalances` / `postTokenBalances` are arrays of token-account
+// snapshots taken before and after the tx. Each entry has the account's
+// position in the tx's `accountKeys` (`accountIndex`), the mint, the owner,
+// and the raw amount. We use these to reconstruct pool reserves for CPMM
+// loss math: by intersecting the snapshot against the swap's mints and
+// excluding the fee payer, we can identify the pool's two vault accounts
+// and read their balances directly off the chain.
+export type HeliusTokenBalanceSnapshot = {
+  accountIndex: number;
+  mint: string;
+  owner?: string;
+  programId?: string;
+  uiTokenAmount: {
+    amount: string; // raw base units as string
+    decimals: number;
+    uiAmount?: number | null;
+    uiAmountString?: string;
+  };
+};
+
 export type HeliusBlockTransaction = {
   transaction: {
     signatures: string[];
@@ -124,6 +144,8 @@ export type HeliusBlockTransaction = {
   meta?: {
     err?: unknown;
     innerInstructions?: Array<{ index: number; instructions: HeliusBlockInstruction[] }>;
+    preTokenBalances?: HeliusTokenBalanceSnapshot[];
+    postTokenBalances?: HeliusTokenBalanceSnapshot[];
   };
   version?: number | "legacy";
 };
