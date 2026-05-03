@@ -1,187 +1,462 @@
 import { describe, it, expect } from "vitest";
 import {
-  detectSandwichesInSlot,
-  scoreSandwich,
+  detectL1JitoBundle,
+  detectL2Adjacency,
+  detectSandwichForVictim,
+  detectSandwichesForWalletSwaps,
+  isSandwichShape,
+  type JitoBundleInfo,
+  type JitoBundleResolver,
   type ParsedSwap,
-  type SandwichCandidate,
+  type PoolReserves,
 } from "./detector.js";
-import { computeLossUsd } from "./pricing.js";
 
 const SOL = "So11111111111111111111111111111111111111112";
 const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const RAYDIUM_AMM_V4 = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
+const ATTACKER = "ATTACKER";
+const VICTIM_WALLET = "VICTIM";
 
-const mkSwap = (overrides: Partial<ParsedSwap>): ParsedSwap => ({
-  signature: "sig",
-  slot: 100n,
-  txIndexInBlock: 0,
-  blockTime: new Date("2026-01-01T00:00:00Z"),
-  signer: "X",
-  pool: "POOL1",
-  programId: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
-  dex: "raydium_amm_v4",
-  inputMint: USDC,
-  outputMint: SOL,
-  inputAmount: 1_000_000_000n,
-  outputAmount: 5_000_000n,
-  jitoTipLamports: null,
-  jitoBundled: false,
-  inputDecimals: 6,
-  outputDecimals: 9,
-  failed: false,
-  ...overrides,
-});
+const DEFAULT_RESERVES: PoolReserves = {
+  tokenA: 10_000_000_000_000n, // 10,000 USDC at 6 decimals
+  tokenB: 50_000_000_000n, // 50 SOL at 9 decimals
+  tokenAMint: USDC,
+  tokenBMint: SOL,
+};
 
-describe("detectSandwichesInSlot", () => {
-  it("detects a textbook A-B-A sandwich", () => {
-    const front = mkSwap({ signer: "ATTACKER", txIndexInBlock: 0, signature: "f" });
-    const victim = mkSwap({ signer: "VICTIM", txIndexInBlock: 1, signature: "v" });
-    const back = mkSwap({
-      signer: "ATTACKER",
-      txIndexInBlock: 2,
-      signature: "b",
-      inputMint: SOL,
-      outputMint: USDC,
-      inputAmount: 5_000_000n,
-      outputAmount: 1_100_000_000n,
-    });
-
-    const result = detectSandwichesInSlot([front, victim, back]);
-    expect(result).toHaveLength(1);
-    expect(result[0]!.candidate.front.signer).toBe("ATTACKER");
-    expect(result[0]!.candidate.victim.signer).toBe("VICTIM");
-    expect(result[0]!.attackerProfitRaw).toBe(100_000_000n);
-    expect(result[0]!.failed).toBe(false);
-    expect(result[0]!.confidenceScore).toBeGreaterThan(0.5);
-  });
-
-  it("ignores arbitrage on different pools", () => {
-    const a1 = mkSwap({ signer: "ARB", txIndexInBlock: 0, pool: "P1" });
-    const a2 = mkSwap({
-      signer: "ARB",
-      txIndexInBlock: 1,
-      pool: "P2",
-      inputMint: SOL,
-      outputMint: USDC,
-    });
-    expect(detectSandwichesInSlot([a1, a2])).toHaveLength(0);
-  });
-
-  it("ignores when victim shares signer with attacker", () => {
-    const a = mkSwap({ signer: "X", txIndexInBlock: 0 });
-    const b = mkSwap({ signer: "X", txIndexInBlock: 1 });
-    const c = mkSwap({
-      signer: "X",
-      txIndexInBlock: 2,
-      inputMint: SOL,
-      outputMint: USDC,
-    });
-    expect(detectSandwichesInSlot([a, b, c])).toHaveLength(0);
-  });
-
-  it("filters out dust front-run amounts", () => {
-    const front = mkSwap({
-      signer: "ATTACKER",
-      txIndexInBlock: 0,
-      signature: "f",
-      inputAmount: 100n,
-    });
-    const victim = mkSwap({ signer: "VICTIM", txIndexInBlock: 1 });
-    const back = mkSwap({
-      signer: "ATTACKER",
-      txIndexInBlock: 2,
-      signature: "b",
-      inputMint: SOL,
-      outputMint: USDC,
-    });
-    expect(detectSandwichesInSlot([front, victim, back])).toHaveLength(0);
-  });
-
-  it("rejects when back tx pool differs from front pool", () => {
-    const front = mkSwap({ signer: "A", txIndexInBlock: 0, pool: "P1" });
-    const victim = mkSwap({ signer: "V", txIndexInBlock: 1, pool: "P1" });
-    const back = mkSwap({
-      signer: "A",
-      txIndexInBlock: 2,
-      pool: "P1",
-      inputMint: SOL,
-      outputMint: USDC,
-    });
-    expect(detectSandwichesInSlot([front, victim, back])).toHaveLength(1);
-
-    const backWrongPool = mkSwap({
-      signer: "A",
-      txIndexInBlock: 2,
-      pool: "P2",
-      inputMint: SOL,
-      outputMint: USDC,
-    });
-    expect(detectSandwichesInSlot([front, victim, backWrongPool])).toHaveLength(0);
-  });
-});
-
-describe("scoreSandwich", () => {
-  const mkCandidate = (overrides: {
-    failed?: boolean;
-    bundled?: boolean;
-    bot?: boolean;
-  }): SandwichCandidate => {
-    const front = mkSwap({
-      signer: overrides.bot ? "9973hWbcumZNeKd4UxW1wT892rcdHQNwjfnz8KwzyWp6" : "A",
-      txIndexInBlock: 0,
-      jitoBundled: overrides.bundled ?? false,
-      jitoTipLamports: overrides.bundled ? 10_000n : null,
-    });
-    const victim = mkSwap({ signer: "V", txIndexInBlock: 1 });
-    const back = mkSwap({
-      signer: front.signer,
-      txIndexInBlock: 2,
-      inputMint: SOL,
-      outputMint: USDC,
-      inputAmount: 5_000_000n,
-      outputAmount: 1_100_000_000n,
-      failed: overrides.failed ?? false,
-      jitoBundled: overrides.bundled ?? false,
-    });
-    return { front, victim, back, pool: front.pool, slot: front.slot };
+function mkSwap(overrides: Partial<ParsedSwap>): ParsedSwap {
+  return {
+    signature: "sig",
+    slot: 100n,
+    txIndexInBlock: 0,
+    blockTime: new Date("2026-01-01T00:00:00Z"),
+    signer: "X",
+    pool: "POOL1",
+    programId: RAYDIUM_AMM_V4,
+    dex: "raydium_amm_v4",
+    inputMint: USDC,
+    outputMint: SOL,
+    inputAmount: 1_000_000_000n, // 1000 USDC
+    outputAmount: 5_000_000n, // 0.005 SOL
+    jitoTipLamports: null,
+    jitoBundled: false,
+    inputDecimals: 6,
+    outputDecimals: 9,
+    failed: false,
+    poolReservesBefore: null,
+    poolReservesAfter: null,
+    ...overrides,
   };
+}
 
-  it("base confidence for vanilla onchain sandwich is 0.70", () => {
-    const det = scoreSandwich(mkCandidate({}), null);
-    expect(det.confidenceScore).toBe(0.7);
+function mkSandwichTriple(overrides: {
+  attackerSig?: string;
+  victimSlot?: bigint;
+  pool?: string;
+  failedBack?: boolean;
+  reserves?: PoolReserves | null;
+} = {}) {
+  const slot = overrides.victimSlot ?? 100n;
+  const pool = overrides.pool ?? "POOL1";
+  // `??` would treat explicit `null` as "use default" — that's the
+  // opposite of what we want when a test asks for "no reserves attached".
+  const reserves =
+    overrides.reserves === undefined ? DEFAULT_RESERVES : overrides.reserves;
+  const front = mkSwap({
+    signer: ATTACKER,
+    txIndexInBlock: 5,
+    signature: "front_sig",
+    slot,
+    pool,
+    inputMint: USDC,
+    outputMint: SOL,
+    inputAmount: 1_000_000_000n,
+    outputAmount: 4_950_000n,
+    poolReservesBefore: reserves,
+  });
+  const victim = mkSwap({
+    signer: VICTIM_WALLET,
+    txIndexInBlock: 6,
+    signature: "victim_sig",
+    slot,
+    pool,
+    inputMint: USDC,
+    outputMint: SOL,
+    inputAmount: 500_000_000n,
+    outputAmount: 2_400_000n,
+  });
+  const back = mkSwap({
+    signer: ATTACKER,
+    txIndexInBlock: 7,
+    signature: "back_sig",
+    slot,
+    pool,
+    inputMint: SOL,
+    outputMint: USDC,
+    inputAmount: 4_950_000n,
+    outputAmount: 1_100_000_000n,
+    failed: overrides.failedBack ?? false,
+  });
+  return { front, victim, back };
+}
+
+function makeJitoStub(bundles: JitoBundleInfo[] = []): JitoBundleResolver {
+  const map = new Map<string, JitoBundleInfo>();
+  for (const b of bundles) {
+    for (const sig of b.signaturesInBundle) map.set(sig, b);
+  }
+  return {
+    async getBundleForTx(sig: string) {
+      return map.get(sig) ?? null;
+    },
+  };
+}
+
+describe("isSandwichShape", () => {
+  it("returns true for a textbook A→B→A pattern with same-signer front+back", () => {
+    const { front, victim, back } = mkSandwichTriple();
+    expect(isSandwichShape(victim, front, back)).toBe(true);
   });
 
-  it("adds +0.20 for jito-bundled, +0.10 for known bot", () => {
-    const det = scoreSandwich(mkCandidate({ bundled: true, bot: true }), "VOTE");
-    expect(det.confidenceScore).toBeCloseTo(1.0, 2);
-    expect(det.isKnownBot).toBe(true);
-    expect(det.knownBotName).toBe("arsc-cold");
-    expect(det.validatorVoteAccount).toBe("VOTE");
+  it("rejects when front and back have different signers (arbitrage between MMs)", () => {
+    const { front, victim, back } = mkSandwichTriple();
+    expect(isSandwichShape(victim, front, { ...back, signer: "OTHER" })).toBe(false);
   });
 
-  it("zeroes profit and reduces confidence for failed back", () => {
-    const det = scoreSandwich(mkCandidate({ failed: true }), null);
-    expect(det.attackerProfitRaw).toBe(0n);
-    expect(det.failed).toBe(true);
-    expect(det.confidenceScore).toBeLessThan(0.7);
+  it("rejects self-sandwich (attacker == victim signer)", () => {
+    const { front, victim, back } = mkSandwichTriple();
+    expect(isSandwichShape({ ...victim, signer: ATTACKER }, front, back)).toBe(false);
   });
 
-  it("subtracts jito tip from realized profit", () => {
-    const det = scoreSandwich(mkCandidate({ bundled: true }), null);
-    expect(det.attackerProfitRaw).toBe(1_100_000_000n - 1_000_000_000n - 10_000n);
+  it("rejects when front pool differs from victim pool", () => {
+    const { front, victim, back } = mkSandwichTriple();
+    expect(isSandwichShape(victim, { ...front, pool: "OTHER_POOL" }, back)).toBe(false);
+  });
+
+  it("rejects when back direction is not reversed", () => {
+    const { front, victim, back } = mkSandwichTriple();
+    expect(
+      isSandwichShape(victim, front, { ...back, inputMint: USDC, outputMint: SOL }),
+    ).toBe(false);
   });
 });
 
-describe("computeLossUsd", () => {
-  it("returns null when no price available", () => {
-    expect(computeLossUsd(1_000_000n, 6, null)).toBeNull();
+describe("detectL2Adjacency", () => {
+  it("fires at confidence 0.95 when front/victim/back are at consecutive indices", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const match = detectL2Adjacency(victim, [front, back]);
+    expect(match).not.toBeNull();
+    expect(match!.layer).toBe("L2");
+    expect(match!.confidence).toBe(0.95);
+    expect(match!.status).toBe("confirmed");
+    expect(match!.attacker).toBe(ATTACKER);
+    expect(match!.jitoBundled).toBe(false);
   });
 
-  it("returns 0 for non-positive losses", () => {
-    expect(computeLossUsd(0n, 6, 1.0)).toBe(0);
-    expect(computeLossUsd(-5n, 6, 1.0)).toBe(0);
+  it("returns null when front is not at victimIndex - 1 (gap between front and victim)", () => {
+    const { front, victim, back } = mkSandwichTriple();
+    expect(detectL2Adjacency(victim, [{ ...front, txIndexInBlock: 3 }, back])).toBeNull();
   });
 
-  it("rounds to cents", () => {
-    expect(computeLossUsd(123_456_789n, 6, 1.0)).toBe(123.46);
+  it("returns null when back is not at victimIndex + 1", () => {
+    const { front, victim, back } = mkSandwichTriple();
+    expect(detectL2Adjacency(victim, [front, { ...back, txIndexInBlock: 9 }])).toBeNull();
+  });
+
+  it("returns null when back-run sells <95% of front-run output (arb-shaped triple)", () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const tinyBack = { ...back, inputAmount: 1_000n }; // way under 95% of frontOutput
+    expect(detectL2Adjacency(victim, [front, tinyBack])).toBeNull();
+  });
+
+  it("returns null when the front-run is failed (no slippage was caused)", () => {
+    const { front, victim, back } = mkSandwichTriple();
+    expect(detectL2Adjacency(victim, [{ ...front, failed: true }, back])).toBeNull();
+  });
+
+  it("still fires when the back-run is failed — victim ate front-run slippage", () => {
+    const { front, victim, back } = mkSandwichTriple();
+    // Failed back-runs bypass the size-tolerance band; the bot tried but
+    // bailed. Loss method dispatcher routes these to failed-backrun-slippage.
+    const failedBack = { ...back, failed: true, inputAmount: 0n };
+    const match = detectL2Adjacency(victim, [front, failedBack]);
+    expect(match).not.toBeNull();
+    expect(match!.layer).toBe("L2");
+  });
+
+  it("returns null when no candidates are at adjacent positions", () => {
+    const victim = mkSwap({ txIndexInBlock: 6, signer: VICTIM_WALLET });
+    expect(detectL2Adjacency(victim, [])).toBeNull();
+  });
+});
+
+describe("detectL1JitoBundle", () => {
+  it("fires at confidence 1.00 when victim is in middle of a 3-tx bundle with sandwich shape", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const jito = makeJitoStub([
+      {
+        bundleId: "bundle1",
+        signaturesInBundle: ["front_sig", "victim_sig", "back_sig"],
+        landedSlot: 100,
+        tipLamports: 50_000n,
+      },
+    ]);
+    const match = await detectL1JitoBundle(victim, [front, back], jito);
+    expect(match).not.toBeNull();
+    expect(match!.layer).toBe("L1");
+    expect(match!.confidence).toBe(1.0);
+    expect(match!.jitoBundled).toBe(true);
+    expect(match!.jitoTipLamports).toBe(50_000n);
+  });
+
+  it("returns null when victim is at index 0 of the bundle (jito-dontfront usage)", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const jito = makeJitoStub([
+      {
+        bundleId: "bundle1",
+        signaturesInBundle: ["victim_sig", "front_sig", "back_sig"],
+        landedSlot: 100,
+        tipLamports: 50_000n,
+      },
+    ]);
+    expect(await detectL1JitoBundle(victim, [front, back], jito)).toBeNull();
+  });
+
+  it("returns null when victim is the last sig in the bundle (no back-run)", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const jito = makeJitoStub([
+      {
+        bundleId: "bundle1",
+        signaturesInBundle: ["front_sig", "back_sig", "victim_sig"],
+        landedSlot: 100,
+        tipLamports: 50_000n,
+      },
+    ]);
+    expect(await detectL1JitoBundle(victim, [front, back], jito)).toBeNull();
+  });
+
+  it("returns null when victim is not in any bundle", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const jito = makeJitoStub([]);
+    expect(await detectL1JitoBundle(victim, [front, back], jito)).toBeNull();
+  });
+
+  it("returns null when bundle includes non-sandwich-shape swaps next to victim", async () => {
+    const { victim } = mkSandwichTriple();
+    const otherFront = mkSwap({
+      signature: "front_sig",
+      signer: "OTHER_BOT",
+      pool: "DIFFERENT_POOL",
+      txIndexInBlock: 5,
+    });
+    const otherBack = mkSwap({
+      signature: "back_sig",
+      signer: "OTHER_BOT",
+      pool: "DIFFERENT_POOL",
+      txIndexInBlock: 7,
+    });
+    const jito = makeJitoStub([
+      {
+        bundleId: "bundle1",
+        signaturesInBundle: ["front_sig", "victim_sig", "back_sig"],
+        landedSlot: 100,
+        tipLamports: 50_000n,
+      },
+    ]);
+    // Front and back are on a different pool — not a sandwich.
+    expect(await detectL1JitoBundle(victim, [otherFront, otherBack], jito)).toBeNull();
+  });
+
+  it("fails closed when the jito resolver throws", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const flakyJito: JitoBundleResolver = {
+      async getBundleForTx() {
+        throw new Error("network down");
+      },
+    };
+    expect(await detectL1JitoBundle(victim, [front, back], flakyJito)).toBeNull();
+  });
+});
+
+describe("detectSandwichForVictim — orchestration + post-filters", () => {
+  it("short-circuits at L1 when bundle membership is present", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const jito = makeJitoStub([
+      {
+        bundleId: "bundle1",
+        signaturesInBundle: ["front_sig", "victim_sig", "back_sig"],
+        landedSlot: 100,
+        tipLamports: 50_000n,
+      },
+    ]);
+    const det = await detectSandwichForVictim({
+      victim,
+      candidates: [front, back],
+      jito,
+    });
+    expect(det).not.toBeNull();
+    expect(det!.layer).toBe("L1");
+    expect(det!.loss.method).toBeDefined();
+    expect(det!.detectedAt).toBeInstanceOf(Date);
+  });
+
+  it("falls through to L2 when bundle lookup returns null but adjacency is present", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const det = await detectSandwichForVictim({
+      victim,
+      candidates: [front, back],
+      jito: makeJitoStub([]),
+    });
+    expect(det).not.toBeNull();
+    expect(det!.layer).toBe("L2");
+  });
+
+  it("uses CPMM reconstruction when reserves are available", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const det = await detectSandwichForVictim({
+      victim,
+      candidates: [front, back],
+      jito: makeJitoStub([]),
+    });
+    expect(det!.loss.method).toBe("cpmm-reconstruction");
+    expect(det!.loss.lossConfidence).toBe(1.0);
+    expect(det!.loss.lossInOutputToken).toBeGreaterThan(0n);
+  });
+
+  it("falls back to back-run profit proxy when reserves are missing", async () => {
+    const { front, victim, back } = mkSandwichTriple({ reserves: null });
+    const det = await detectSandwichForVictim({
+      victim,
+      candidates: [front, back],
+      jito: makeJitoStub([]),
+    });
+    expect(det!.loss.method).toBe("backrun-profit-proxy");
+    expect(det!.loss.lossConfidence).toBe(0.85);
+  });
+
+  it("uses failed-backrun-slippage method when back-run reverted", async () => {
+    const { front, victim, back } = mkSandwichTriple({ failedBack: true, reserves: null });
+    const det = await detectSandwichForVictim({
+      victim,
+      candidates: [front, back],
+      jito: makeJitoStub([]),
+    });
+    expect(det!.loss.method).toBe("failed-backrun-slippage");
+    expect(det!.loss.lossConfidence).toBe(0.5);
+  });
+
+  it("drops the detection when self-sandwich (victim is the attacker)", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const selfVictim = { ...victim, signer: ATTACKER };
+    const det = await detectSandwichForVictim({
+      victim: selfVictim,
+      candidates: [front, back],
+      jito: makeJitoStub([]),
+    });
+    expect(det).toBeNull();
+  });
+
+  it("drops the detection when victim swap itself is failed", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const det = await detectSandwichForVictim({
+      victim: { ...victim, failed: true },
+      candidates: [front, back],
+      jito: makeJitoStub([]),
+    });
+    expect(det).toBeNull();
+  });
+
+  it("drops the detection when loss is below the 0.1% threshold", async () => {
+    // Front-run barely moves the price — back/front spread tiny — proxy
+    // loss < 0.1% of victim output.
+    const slot = 100n;
+    const front = mkSwap({
+      signer: ATTACKER,
+      txIndexInBlock: 5,
+      signature: "front_sig",
+      slot,
+      inputAmount: 1_000_000_000n,
+      outputAmount: 5_000_000n,
+    });
+    const victim = mkSwap({
+      signer: VICTIM_WALLET,
+      txIndexInBlock: 6,
+      signature: "victim_sig",
+      slot,
+      inputAmount: 500_000_000n,
+      outputAmount: 2_500_000n, // gets exactly the same rate as front
+    });
+    // Back-run sells everything at exactly cost (zero proxy profit) →
+    // zero loss → filtered.
+    const back = mkSwap({
+      signer: ATTACKER,
+      txIndexInBlock: 7,
+      signature: "back_sig",
+      slot,
+      inputMint: SOL,
+      outputMint: USDC,
+      inputAmount: 5_000_000n,
+      outputAmount: 1_000_000_000n,
+    });
+    const det = await detectSandwichForVictim({
+      victim,
+      candidates: [front, back],
+      jito: makeJitoStub([]),
+    });
+    expect(det).toBeNull();
+  });
+});
+
+describe("detectSandwichesForWalletSwaps", () => {
+  it("finds the wallet's sandwich among a mixed-block swap set", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    const noise = mkSwap({
+      signature: "noise_sig",
+      txIndexInBlock: 9,
+      signer: "RANDOM",
+      pool: "OTHER_POOL",
+    });
+    const detections = await detectSandwichesForWalletSwaps({
+      wallet: VICTIM_WALLET,
+      walletSwaps: [victim],
+      blockSwaps: [front, victim, back, noise],
+      jito: makeJitoStub([]),
+    });
+    expect(detections).toHaveLength(1);
+    expect(detections[0]!.victim.signature).toBe("victim_sig");
+    expect(detections[0]!.layer).toBe("L2");
+  });
+
+  it("ignores wallet swaps whose signer doesn't match the wallet (defensive)", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    // Wallet swap list contains a stray non-wallet swap (shouldn't happen,
+    // but guards against caller bugs).
+    const detections = await detectSandwichesForWalletSwaps({
+      wallet: VICTIM_WALLET,
+      walletSwaps: [{ ...victim, signer: "OTHER" }],
+      blockSwaps: [front, victim, back],
+      jito: makeJitoStub([]),
+    });
+    expect(detections).toHaveLength(0);
+  });
+
+  it("only considers same-pool candidates for a victim", async () => {
+    const { front, victim, back } = mkSandwichTriple();
+    // A different pool's sandwich-shape triple in the same block — must
+    // not contaminate the victim's detection.
+    const otherPoolSwap = mkSwap({
+      signature: "otherpool_sig",
+      txIndexInBlock: 100,
+      signer: "BOT2",
+      pool: "OTHER_POOL",
+    });
+    const detections = await detectSandwichesForWalletSwaps({
+      wallet: VICTIM_WALLET,
+      walletSwaps: [victim],
+      blockSwaps: [front, victim, back, otherPoolSwap],
+      jito: makeJitoStub([]),
+    });
+    expect(detections).toHaveLength(1);
+    expect(detections[0]!.pool).toBe(victim.pool);
   });
 });

@@ -1,129 +1,133 @@
-import { isKnownBot } from "./known-bots.js";
+import type { ParsedSwap } from "./types.js";
 import type {
-  ParsedSwap,
-  SandwichCandidate,
+  JitoBundleResolver,
+  LayerMatch,
   SandwichDetection,
-} from "./types.js";
+} from "./detector-types.js";
+import { detectL1JitoBundle } from "./detector-l1.js";
+import { detectL2Adjacency } from "./detector-l2.js";
+import { computeLoss } from "./detector-loss.js";
+import { passesPostFilters } from "./detector-filters.js";
 
-export type { ParsedSwap, SandwichCandidate, SandwichDetection } from "./types.js";
+export type {
+  DetectionLayer,
+  DetectionStatus,
+  JitoBundleInfo,
+  JitoBundleResolver,
+  LayerMatch,
+  LossCalculation,
+  LossMethod,
+  SandwichDetection,
+} from "./detector-types.js";
+export type { ParsedSwap, PoolReserves } from "./types.js";
+export { isSandwichShape } from "./detector-l1.js";
+export { detectL1JitoBundle } from "./detector-l1.js";
+export { detectL2Adjacency } from "./detector-l2.js";
+export { computeLoss } from "./detector-loss.js";
+export { passesPostFilters } from "./detector-filters.js";
+export { getDexFeeBps, getPoolType, isCpmmDex } from "./dex-fees.js";
 
-const DUST_INPUT_THRESHOLD = 1_000_000n;
+/**
+ * detectSandwichForVictim — the layered classifier entry point.
+ *
+ * Runs L1 then L2 against the given victim swap and same-block
+ * candidates. Short-circuits on the first match; the spec orders layers
+ * by confidence so once a higher layer fires we don't re-test with
+ * weaker signals.
+ *
+ * Layers L3-L5 are scaffolded but not enabled in this phase per §13:
+ * ship L1+L2 first, validate against ground truth, then iterate. The
+ * orchestrator returns null if neither L1 nor L2 fire — callers should
+ * NOT treat null as "definitely not a sandwich"; it just means "no
+ * confident detection at this confidence tier".
+ *
+ * Inputs:
+ *   - victim: a ParsedSwap belonging to the wallet being scanned
+ *   - candidates: every other ParsedSwap in the same block on the same
+ *     pool. The block expander provides this — we don't filter further
+ *     here so that L2 can use txIndexInBlock adjacency directly.
+ *   - jito: a bundle resolver (production: runtime/jito-bundle.ts,
+ *           tests: in-memory stub)
+ *
+ * Returns a fully-scored SandwichDetection with loss + post-filters
+ * applied, or null.
+ */
+export async function detectSandwichForVictim(params: {
+  victim: ParsedSwap;
+  candidates: ParsedSwap[];
+  jito: JitoBundleResolver;
+  now?: () => Date;
+}): Promise<SandwichDetection | null> {
+  const { victim, candidates, jito } = params;
+  const now = params.now ?? (() => new Date());
 
-function groupBy<T, K>(arr: T[], key: (t: T) => K): Map<K, T[]> {
-  const out = new Map<K, T[]>();
-  for (const item of arr) {
-    const k = key(item);
-    const bucket = out.get(k);
-    if (bucket) bucket.push(item);
-    else out.set(k, [item]);
-  }
-  return out;
-}
+  // Failed victim swaps can't be sandwiched in the meaningful sense —
+  // the victim's swap reverted, no value exchanged. Skip cheaply.
+  if (victim.failed) return null;
 
-function poolKey(s: ParsedSwap): string {
-  return `${s.slot.toString()}:${s.pool}`;
-}
+  // L1 — Jito bundle membership (highest confidence).
+  const l1 = await detectL1JitoBundle(victim, candidates, jito);
+  const layerMatch: LayerMatch | null = l1 ?? detectL2Adjacency(victim, candidates);
+  if (!layerMatch) return null;
 
-export function scoreSandwich(
-  candidate: SandwichCandidate,
-  validatorVoteAccount: string | null,
-): SandwichDetection {
-  const { front, victim, back } = candidate;
-  const tip = front.jitoTipLamports ?? back.jitoTipLamports ?? 0n;
-
-  const failed = back.failed;
-  const attackerProfitRaw = failed
-    ? 0n
-    : back.outputAmount - front.inputAmount - tip;
-
-  const victimLossRaw = attackerProfitRaw > 0n ? attackerProfitRaw : 0n;
-  const jitoBundled = front.jitoBundled || back.jitoBundled;
-
-  const bot = isKnownBot(front.signer);
-
-  let confidence = 0.7;
-  if (jitoBundled) confidence += 0.2;
-  if (bot) confidence += 0.1;
-  if (failed) confidence -= 0.2;
-  confidence = Math.max(0, Math.min(1, confidence));
-  confidence = Math.round(confidence * 100) / 100;
-
-  return {
-    candidate,
-    victimLossRaw,
-    attackerProfitRaw,
-    lossUsd: null,
-    confidenceScore: confidence,
-    validatorVoteAccount,
-    isKnownBot: bot !== null,
-    knownBotName: bot?.name ?? null,
-    jitoBundled,
-    failed,
+  const detection: SandwichDetection = {
+    ...layerMatch,
+    loss: computeLoss(layerMatch),
+    detectedAt: now(),
   };
+
+  if (!passesPostFilters(detection)) return null;
+  return detection;
 }
 
-export function detectSandwichesInSlot(
-  swaps: ParsedSwap[],
-  validatorVoteAccount: string | null = null,
-): SandwichDetection[] {
-  if (swaps.length < 3) return [];
+/**
+ * Convenience: run detection for every wallet swap against the
+ * pre-expanded set of same-block swaps. This is the shape the scanner
+ * worker uses — it pre-fetches blocks via the block-expander, then asks
+ * the detector to classify each victim candidate.
+ *
+ * The candidates argument is the *full block-expanded swap list*, not
+ * a per-wallet subset — we filter to same-pool, different-signature
+ * inside this function so the caller doesn't have to think about it.
+ */
+export async function detectSandwichesForWalletSwaps(params: {
+  wallet: string;
+  walletSwaps: ParsedSwap[];
+  blockSwaps: ParsedSwap[];
+  jito: JitoBundleResolver;
+  now?: () => Date;
+}): Promise<SandwichDetection[]> {
+  const { wallet, walletSwaps, blockSwaps, jito } = params;
 
-  const sorted = [...swaps].sort((a, b) => a.txIndexInBlock - b.txIndexInBlock);
-  const byPool = groupBy(sorted, poolKey);
-  const out: SandwichDetection[] = [];
-
-  for (const poolSwaps of byPool.values()) {
-    if (poolSwaps.length < 3) continue;
-
-    for (let i = 0; i < poolSwaps.length - 2; i++) {
-      const front = poolSwaps[i]!;
-      if (front.failed) continue;
-      if (front.inputAmount < DUST_INPUT_THRESHOLD) continue;
-
-      for (let j = i + 1; j < poolSwaps.length - 1; j++) {
-        const victim = poolSwaps[j]!;
-        if (victim.signer === front.signer) continue;
-
-        const sameDirAV =
-          front.inputMint === victim.inputMint &&
-          front.outputMint === victim.outputMint;
-        if (!sameDirAV) continue;
-
-        for (let k = j + 1; k < poolSwaps.length; k++) {
-          const back = poolSwaps[k]!;
-          if (back.signer !== front.signer) continue;
-          if (back.pool !== front.pool) continue;
-
-          const reversedBack =
-            back.inputMint === front.outputMint &&
-            back.outputMint === front.inputMint;
-          if (!reversedBack) continue;
-
-          const candidate: SandwichCandidate = {
-            front,
-            victim,
-            back,
-            pool: front.pool,
-            slot: front.slot,
-          };
-
-          out.push(scoreSandwich(candidate, validatorVoteAccount));
-        }
-      }
-    }
+  // Index block swaps by slot for O(1) lookup. Detection only operates
+  // on swaps in the victim's slot — cross-slot detection (L5) is out of
+  // scope until L4 is validated.
+  const bySlot = new Map<string, ParsedSwap[]>();
+  for (const s of blockSwaps) {
+    const k = s.slot.toString();
+    const bucket = bySlot.get(k);
+    if (bucket) bucket.push(s);
+    else bySlot.set(k, [s]);
   }
 
-  return out;
-}
-
-export function detectSandwichesAcrossSlots(
-  swaps: ParsedSwap[],
-  validatorBySlot: (slot: bigint) => string | null = () => null,
-): SandwichDetection[] {
-  const bySlot = groupBy(swaps, (s) => s.slot.toString());
   const out: SandwichDetection[] = [];
-  for (const [slotStr, slotSwaps] of bySlot) {
-    out.push(...detectSandwichesInSlot(slotSwaps, validatorBySlot(BigInt(slotStr))));
+  for (const victim of walletSwaps) {
+    if (victim.signer !== wallet) continue; // attacker-as-wallet case
+    const sameSlot = bySlot.get(victim.slot.toString()) ?? [];
+    // Same-pool candidates excluding the victim itself. Sandwich shape
+    // requires same pool; cross-pool legs are not sandwiches.
+    const candidates = sameSlot.filter(
+      (s) => s.pool === victim.pool && s.signature !== victim.signature,
+    );
+
+    const detection = await detectSandwichForVictim({
+      victim,
+      candidates,
+      jito,
+      now: params.now,
+    });
+    if (detection) out.push(detection);
   }
+
   return out;
 }
