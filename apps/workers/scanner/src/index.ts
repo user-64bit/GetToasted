@@ -142,15 +142,59 @@ function walletTxTouchesTrackedDex(tx: HeliusEnhancedTransaction): boolean {
 async function runLayeredDetection(
   wallet: string,
   blockSwaps: ParsedSwap[],
+  diagBudget: { remaining: number },
+  jobLog: typeof log,
 ): Promise<SandwichDetection[]> {
   const walletSwaps = blockSwaps.filter((s) => s.signer === wallet);
   if (walletSwaps.length === 0) return [];
-  return detectSandwichesForWalletSwaps({
+  const detections = await detectSandwichesForWalletSwaps({
     wallet,
     walletSwaps,
     blockSwaps,
     jito,
   });
+
+  // Diagnostic: when the wallet had a swap in this slot but no
+  // detection fired, log the same-pool block context so an operator
+  // can see why. Most common diagnosis from this output:
+  //   - "no other same-pool swaps in slot" → bot used an untracked DEX,
+  //     or its tx didn't make it into the block-expander (parse miss)
+  //   - "candidates present but no shape match" → check input/output
+  //     mints and signers; if pool keys diverge between victim and bot
+  //     that's a pool-resolution bug
+  // Capped per-scan to avoid flooding the log on busy DEX wallets.
+  if (detections.length === 0 && diagBudget.remaining > 0) {
+    for (const v of walletSwaps) {
+      if (diagBudget.remaining <= 0) break;
+      const sameSlot = blockSwaps.filter(
+        (s) => s.slot === v.slot && s.signature !== v.signature,
+      );
+      const samePool = sameSlot.filter((s) => s.pool === v.pool);
+      jobLog.debug(
+        {
+          slot: v.slot.toString(),
+          victimSig: v.signature,
+          victimPool: v.pool,
+          victimDex: v.dex,
+          victimTxIndex: v.txIndexInBlock,
+          victimDirection: `${v.inputMint.slice(0, 4)}→${v.outputMint.slice(0, 4)}`,
+          sameSlotSwaps: sameSlot.length,
+          samePoolSwaps: samePool.length,
+          samePoolDigest: samePool.slice(0, 6).map((s) => ({
+            sig: s.signature.slice(0, 8),
+            signer: s.signer.slice(0, 8),
+            idx: s.txIndexInBlock,
+            dir: `${s.inputMint.slice(0, 4)}→${s.outputMint.slice(0, 4)}`,
+            failed: s.failed,
+          })),
+        },
+        "scanner: wallet swap in slot but no L1/L2 detection — diagnostic dump",
+      );
+      diagBudget.remaining -= 1;
+    }
+  }
+
+  return detections;
 }
 
 async function processJob(job: Job<ScanJobData>): Promise<void> {
@@ -178,6 +222,10 @@ async function processJob(job: Job<ScanJobData>): Promise<void> {
     let stopReason: "exhausted" | "max_signatures" | "max_slots" | "budget" = "exhausted";
     const startedAt = Date.now();
     const deadline = startedAt + MAX_SCAN_DURATION_MS;
+    // Cap how many "wallet swap with no detection" diagnostic dumps we
+    // emit per scan job. Heavy DEX wallets can have hundreds of slots
+    // with no sandwich; we don't want to flood the log.
+    const diagBudget = { remaining: 5 };
 
     while (true) {
       if (Date.now() - startedAt > MAX_SCAN_DURATION_MS) {
@@ -238,7 +286,7 @@ async function processJob(job: Job<ScanJobData>): Promise<void> {
         // in Redis), so the layered detector sees the full attacker front +
         // victim + back triple plus pool reserves for CPMM loss math.
         const allSwaps = await blockExpander.getSwapsForSlots(candidateSlots, { deadline });
-        const detections = await runLayeredDetection(wallet, allSwaps);
+        const detections = await runLayeredDetection(wallet, allSwaps, diagBudget, jobLog);
 
         if (detections.length > 0) {
           const enriched: Sandwiches.SandwichInsert[] = [];
