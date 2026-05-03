@@ -7,6 +7,10 @@ const SOL = "So11111111111111111111111111111111111111112";
 const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const TIP_ACC = "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5";
 
+// Expected synthetic pool keys — direction-invariant, mint-pair-aware.
+// `${programId}:${[mintA, mintB].sort().join("-")}`
+const RAYDIUM_USDC_SOL_POOL = `${RAYDIUM_AMM_V4}:${USDC}-${SOL}`;
+
 const baseTx = (overrides: Partial<HeliusEnhancedTransaction> = {}): HeliusEnhancedTransaction => ({
   signature: "sig1",
   slot: 100,
@@ -79,7 +83,7 @@ describe("parseHeliusTxToSwaps — single hop Raydium", () => {
     const s = swaps[0]!;
     expect(s.dex).toBe("raydium_amm_v4");
     expect(s.programId).toBe(RAYDIUM_AMM_V4);
-    expect(s.pool).toBe("POOL_ACC");
+    expect(s.pool).toBe(RAYDIUM_USDC_SOL_POOL);
     expect(s.inputMint).toBe(USDC);
     expect(s.outputMint).toBe(SOL);
     expect(s.inputAmount).toBe(1_000_000_000n);
@@ -348,6 +352,131 @@ describe("parseHeliusTxToSwaps — accountData fallback (empty events.swap)", ()
     expect(swaps).toHaveLength(1);
     expect(swaps[0]!.inputMint).toBe(USDC);
     expect(swaps[0]!.outputMint).toBe(SOL);
+  });
+});
+
+describe("pool-key consistency across parsing paths", () => {
+  // This is the regression that hid sandwiches against any wallet that
+  // used Jupiter (i.e. most retail traders). The bot's direct-swap front
+  // and back parsed via the single-hop path; the victim's Jupiter-routed
+  // swap parsed via the inner-swap path. Each path produced a different
+  // `pool` string for the same physical pool, so the orchestrator's
+  // `pool === victim.pool` filter rejected the bot's swaps and L2 had
+  // no candidates. Pinning equivalence here so it can't regress.
+  it("Jupiter-leg path and direct-swap path produce the SAME pool key for the same physical pool", () => {
+    // Bot's front-run — direct Raydium AMM v4 swap, accounts list has
+    // tokenProgram first (real Helius layout).
+    const directTx = baseTx({
+      signature: "front_sig",
+      feePayer: "BOT",
+      instructions: [
+        {
+          programId: RAYDIUM_AMM_V4,
+          accounts: [
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", // tokenProgram
+            "REAL_AMM_ID", // the actual pool
+            "REAL_AMM_AUTH",
+          ],
+          data: "",
+          innerInstructions: [],
+        },
+      ],
+      events: {
+        swap: {
+          tokenInputs: [
+            { userAccount: "BOT", mint: USDC, rawTokenAmount: { tokenAmount: "1000000000", decimals: 6 } },
+          ],
+          tokenOutputs: [
+            { userAccount: "BOT", mint: SOL, rawTokenAmount: { tokenAmount: "5000000", decimals: 9 } },
+          ],
+        },
+      },
+    });
+
+    // Victim's swap — routed via Jupiter, leg through Raydium AMM v4.
+    // Helius enhanced returns programInfo.account = the leg's program
+    // id, NOT the AMM id; we have to derive the pool key from
+    // (programId, mints) instead.
+    const jupiterTx = baseTx({
+      signature: "victim_sig",
+      feePayer: "VICTIM",
+      events: {
+        swap: {
+          innerSwaps: [
+            {
+              programInfo: {
+                source: "RAYDIUM",
+                account: RAYDIUM_AMM_V4,
+                programName: "Raydium AMM v4",
+                instructionName: "swap",
+              },
+              tokenInputs: [
+                { userAccount: "VICTIM", mint: USDC, rawTokenAmount: { tokenAmount: "500000000", decimals: 6 } },
+              ],
+              tokenOutputs: [
+                { userAccount: "VICTIM", mint: SOL, rawTokenAmount: { tokenAmount: "2400000", decimals: 9 } },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    const direct = parseHeliusTxToSwaps(directTx);
+    const jupiter = parseHeliusTxToSwaps(jupiterTx);
+
+    expect(direct).toHaveLength(1);
+    expect(jupiter).toHaveLength(1);
+    expect(direct[0]!.pool).toBe(jupiter[0]!.pool);
+    expect(direct[0]!.pool).toBe(RAYDIUM_USDC_SOL_POOL);
+  });
+
+  it("produces a direction-invariant key (USDC→SOL and SOL→USDC map to the same pool)", () => {
+    const buyTx = baseTx({
+      signature: "buy",
+      instructions: [
+        {
+          programId: RAYDIUM_AMM_V4,
+          accounts: [RAYDIUM_AMM_V4, "AMM"],
+          data: "",
+          innerInstructions: [],
+        },
+      ],
+      events: {
+        swap: {
+          tokenInputs: [
+            { userAccount: "X", mint: USDC, rawTokenAmount: { tokenAmount: "1000000", decimals: 6 } },
+          ],
+          tokenOutputs: [
+            { userAccount: "X", mint: SOL, rawTokenAmount: { tokenAmount: "5000", decimals: 9 } },
+          ],
+        },
+      },
+    });
+    const sellTx = baseTx({
+      signature: "sell",
+      instructions: [
+        {
+          programId: RAYDIUM_AMM_V4,
+          accounts: [RAYDIUM_AMM_V4, "AMM"],
+          data: "",
+          innerInstructions: [],
+        },
+      ],
+      events: {
+        swap: {
+          tokenInputs: [
+            { userAccount: "X", mint: SOL, rawTokenAmount: { tokenAmount: "5000", decimals: 9 } },
+          ],
+          tokenOutputs: [
+            { userAccount: "X", mint: USDC, rawTokenAmount: { tokenAmount: "1100000", decimals: 6 } },
+          ],
+        },
+      },
+    });
+    const buy = parseHeliusTxToSwaps(buyTx);
+    const sell = parseHeliusTxToSwaps(sellTx);
+    expect(buy[0]!.pool).toBe(sell[0]!.pool);
   });
 });
 

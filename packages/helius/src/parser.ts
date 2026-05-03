@@ -35,21 +35,19 @@ export function extractJitoTipLamports(
   return tip > 0n ? tip : null;
 }
 
-function pickProgramAndPool(tx: HeliusEnhancedTransaction): { programId: string; pool: string } | null {
+function pickProgramId(tx: HeliusEnhancedTransaction): string | null {
   if (!tx.instructions || tx.instructions.length === 0) return null;
 
   for (const ix of tx.instructions) {
     if (TRACKED_DEX_PROGRAM_ID_SET.has(ix.programId)) {
-      const pool = ix.accounts?.find((a) => a !== ix.programId) ?? ix.programId;
-      return { programId: ix.programId, pool };
+      return ix.programId;
     }
   }
 
   for (const ix of tx.instructions) {
     for (const inner of ix.innerInstructions ?? []) {
       if (TRACKED_DEX_PROGRAM_ID_SET.has(inner.programId)) {
-        const pool = inner.accounts?.find((a) => a !== inner.programId) ?? inner.programId;
-        return { programId: inner.programId, pool };
+        return inner.programId;
       }
     }
   }
@@ -57,8 +55,55 @@ function pickProgramAndPool(tx: HeliusEnhancedTransaction): { programId: string;
   return null;
 }
 
-function legPool(leg: HeliusInnerSwap): string {
-  return leg.programInfo.account || leg.programInfo.source || "unknown";
+/**
+ * Pool key construction.
+ *
+ * Sandwich detection groups swaps as candidates by `pool` — the bot's
+ * front-run, the victim's swap, and the bot's back-run all need to map
+ * to the same key for `isSandwichShape` to fire.
+ *
+ * The two parsing paths used to disagree:
+ *   - Direct swap path: pulled the first non-programId account out of
+ *     the instruction. For Raydium AMM v4 that's `tokenProgram`
+ *     (TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA), not the AMM ID.
+ *     Wrong-but-consistent for direct swaps; every Raydium AMM v4 hit
+ *     mapped to the same string.
+ *   - Jupiter-leg path: used `leg.programInfo.account`, which Helius
+ *     fills with the *program ID* of the leg's DEX. For a Raydium leg
+ *     that's `675kPX...`.
+ *
+ * The two paths produced different strings for the same physical pool.
+ * A Jupiter-routed victim plus a direct-swap front+back never matched
+ * the same-pool filter — silent detection miss for any wallet that
+ * uses Jupiter (i.e. most retail traders).
+ *
+ * This synthetic key fixes the mismatch:
+ *   `${programId}:${[inputMint, outputMint].sort().join("-")}`
+ *
+ *   - programId discriminates DEXes
+ *   - sorted mint pair discriminates token pairs (USDC/SOL vs USDC/BONK)
+ *   - sorting makes the key direction-invariant (front buys USDC→SOL,
+ *     back sells SOL→USDC — both produce the same key, which is what
+ *     we want)
+ *   - identical across direct and Jupiter-leg paths because both have
+ *     programId + mints
+ *
+ * Remaining ambiguity: two physical pools on the same DEX with the
+ * same mint pair (e.g. two Raydium AMM v4 USDC/SOL pools at different
+ * tick spacings) collide under this key. In practice that only matters
+ * if a real sandwich on pool A is mis-paired with an unrelated trader
+ * on pool B; `isSandwichShape` still requires same f+b signer and the
+ * 95% sell-through tolerance, so a false positive needs both
+ * coincident traders AND a matching shape — vanishingly rare.
+ *
+ * Proper per-DEX pool-account resolution (per-program-ID offset into
+ * the instruction's accounts array) would replace this with the real
+ * on-chain address; defer until a future refactor when we wire up
+ * per-DEX layouts.
+ */
+function poolKey(programId: string, inputMint: string, outputMint: string): string {
+  const [a, b] = inputMint < outputMint ? [inputMint, outputMint] : [outputMint, inputMint];
+  return `${programId}:${a}-${b}`;
 }
 
 function pickInputOutput(swap: HeliusSwapEvent): {
@@ -141,7 +186,7 @@ function legToSwap(
 
   return {
     ...base,
-    pool: legPool(leg),
+    pool: poolKey(programId, tokenIn.mint, tokenOut.mint),
     programId,
     dex,
     inputMint: tokenIn.mint,
@@ -321,8 +366,8 @@ export function parseHeliusTxToSwaps(
   }
 
   // Single-hop swap — synthesize from top-level swap event + tracked program
-  const programInfo = pickProgramAndPool(tx);
-  if (!programInfo) return [];
+  const programId = pickProgramId(tx);
+  if (!programId) return [];
 
   // Try the structured event first.
   let io = swap ? pickInputOutput(swap) : null;
@@ -337,9 +382,9 @@ export function parseHeliusTxToSwaps(
   return [
     {
       ...base,
-      pool: programInfo.pool,
-      programId: programInfo.programId,
-      dex: getDex(programInfo.programId),
+      pool: poolKey(programId, io.inputMint, io.outputMint),
+      programId,
+      dex: getDex(programId),
       ...io,
     },
   ];
