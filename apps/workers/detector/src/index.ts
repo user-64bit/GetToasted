@@ -6,8 +6,7 @@ import {
   type HeliusEnhancedTransaction,
 } from "@get-toasted/helius";
 import {
-  computeLossUsd,
-  detectSandwichesInSlot,
+  detectSandwichesForWalletSwaps,
   TRACKED_DEX_PROGRAM_ID_SET,
   type SandwichDetection,
 } from "@get-toasted/core";
@@ -16,9 +15,11 @@ import {
   createBlockExpander,
   createBlockTimeResolver,
   createDecimalsResolver,
+  createJitoBundleClient,
   createLeaderScheduleCache,
   createLogger,
   createPriceClient,
+  enrichSandwichDetection,
   redisKeys,
 } from "@get-toasted/runtime";
 
@@ -49,6 +50,7 @@ const rpcUrl =
 const blockTimeResolver = createBlockTimeResolver({ redis: helper, rpcUrl });
 const decimals = createDecimalsResolver({ redis: helper, rpcUrl });
 const blockExpander = createBlockExpander({ redis: helper, helius, logger: log });
+const jito = createJitoBundleClient({ redis: helper, logger: log });
 
 type RealtimeJobData = { transaction: HeliusEnhancedTransaction };
 
@@ -63,51 +65,15 @@ async function publishAlert(wallet: string, payload: Record<string, unknown>): P
   );
 }
 
-async function enrichDetection(det: SandwichDetection): Promise<Sandwiches.SandwichInsert> {
-  const { candidate } = det;
-
-  let blockTime = candidate.front.blockTime;
-  if (Number.isNaN(blockTime.getTime()) || blockTime.getTime() === 0) {
-    const fetched = await blockTimeResolver.getBlockTime(candidate.slot);
-    if (fetched) blockTime = fetched;
-  }
-
-  const validatorVote =
-    det.validatorVoteAccount ?? (await leader.getValidatorForSlot(candidate.slot));
-
-  const profitDecimals =
-    candidate.front.inputDecimals ||
-    (await decimals.getDecimals(candidate.front.inputMint)) ||
-    0;
-  const priceUsd = await prices.getTokenPriceUsd(candidate.front.inputMint, blockTime);
-  const lossUsd = computeLossUsd(det.victimLossRaw, profitDecimals, priceUsd);
-
-  return {
-    slot: candidate.slot,
-    blockTime,
-    pool: candidate.pool,
-    dex: candidate.front.dex,
-    attacker: candidate.front.signer,
-    victimWallet: candidate.victim.signer,
-    validatorVote,
-    frontSig: candidate.front.signature,
-    victimSig: candidate.victim.signature,
-    backSig: candidate.back.signature,
-    jitoBundled: det.jitoBundled,
-    jitoTipLamports:
-      candidate.front.jitoTipLamports ?? candidate.back.jitoTipLamports ?? null,
-    inputMint: candidate.front.inputMint,
-    outputMint: candidate.front.outputMint,
-    victimInAmt: candidate.victim.inputAmount.toString(),
-    victimOutAmt: candidate.victim.outputAmount.toString(),
-    counterfactualOutAmt: null,
-    attackerProfitRaw: det.attackerProfitRaw.toString(),
-    lossUsd: lossUsd !== null ? lossUsd.toFixed(2) : null,
-    confidence: det.confidenceScore.toFixed(2),
-    failed: det.failed,
-    isKnownBot: det.isKnownBot,
-    knownBotName: det.knownBotName,
-  };
+async function enrichDetection(
+  det: SandwichDetection,
+): Promise<Sandwiches.SandwichInsert> {
+  return enrichSandwichDetection(det, {
+    leader,
+    prices,
+    decimals,
+    blockTime: blockTimeResolver,
+  });
 }
 
 function txTouchesTrackedDex(tx: HeliusEnhancedTransaction): boolean {
@@ -126,36 +92,37 @@ async function processJob(job: Job<RealtimeJobData>): Promise<{ detected: number
   // Don't filter on `tx.type === "SWAP"` — Helius classifies a meaningful
   // fraction of real swaps as TRANSFER / UNKNOWN. The block expander
   // discovers all swaps in the slot regardless of how the webhook tx was
-  // classified, so the only safe pre-filter is "did the protected wallet
-  // even touch a tracked DEX in this tx".
+  // classified.
   if (!txTouchesTrackedDex(tx)) return { detected: 0 };
 
   // The webhook fires on a single tx — the protected wallet's swap. That's
-  // the *victim* we're checking for. To form a sandwich triple the
-  // detector also needs the attacker's front + back txs in the same slot
-  // and pool, which only show up when we expand the full block.
+  // the *victim* we're checking for. The layered detector also needs the
+  // attacker's front + back txs in the same slot, which only show up
+  // when we expand the full block.
   const victimWallet = tx.feePayer;
   const slot = BigInt(tx.slot);
 
   const allSwaps = await blockExpander.getBlockSwaps(slot);
   if (allSwaps.length < 3) {
-    // Block expansion returned too few swaps for any triple to form. Either
-    // the slot really has no other swaps, or expansion failed transiently
-    // (the expander logs the failure and returns []). Either way, nothing
-    // to do — webhook won't refire, but the historical scan would catch
-    // this slot if expansion succeeds later.
+    // Not enough swaps in the slot for any sandwich triple. Block
+    // expansion may also have failed transiently — historical scanner
+    // catches it later.
     return { detected: 0 };
   }
 
-  const detections = detectSandwichesInSlot(allSwaps, null);
-  const ours = detections.filter((d) => d.candidate.victim.signer === victimWallet);
-  if (ours.length === 0) {
+  const detections = await detectSandwichesForWalletSwaps({
+    wallet: victimWallet,
+    walletSwaps: allSwaps.filter((s) => s.signer === victimWallet),
+    blockSwaps: allSwaps,
+    jito,
+  });
+
+  if (detections.length === 0) {
     log.debug(
       {
         signature: tx.signature,
         slot: slot.toString(),
         blockSwaps: allSwaps.length,
-        otherDetections: detections.length,
       },
       "detector: slot expanded — no sandwich against this wallet",
     );
@@ -163,7 +130,7 @@ async function processJob(job: Job<RealtimeJobData>): Promise<{ detected: number
   }
 
   const enriched: Sandwiches.SandwichInsert[] = [];
-  for (const det of ours) {
+  for (const det of detections) {
     enriched.push(await enrichDetection(det));
   }
 
@@ -177,6 +144,7 @@ async function processJob(job: Job<RealtimeJobData>): Promise<{ detected: number
       lossUsd: row.lossUsd ?? "",
       confidence: row.confidence,
       attacker: row.attacker,
+      detectionLayer: row.detectionLayer,
     });
   }
 
@@ -186,6 +154,10 @@ async function processJob(job: Job<RealtimeJobData>): Promise<{ detected: number
       slot: slot.toString(),
       detected: inserted.length,
       victimWallet,
+      byLayer: detections.reduce<Record<string, number>>((acc, d) => {
+        acc[d.layer] = (acc[d.layer] ?? 0) + 1;
+        return acc;
+      }, {}),
     },
     "detector: realtime tx processed",
   );
