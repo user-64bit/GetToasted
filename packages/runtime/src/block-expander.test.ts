@@ -292,6 +292,119 @@ describe("createBlockExpander — end-to-end against a synthetic sandwich block"
     expect(helius.parseTransactions).toHaveBeenCalledTimes(1);
   });
 
+  it("anchor-window narrowing: only parses tracked-DEX txs near the anchor sig", async () => {
+    // 25-tx block. Wallet's swap is at index 12. Bot's front (10) and
+    // back (14) are within ±10 → in window. Two unrelated swaps far
+    // away (idx 1 and idx 24) are tracked-DEX too but should NOT be
+    // parsed because they're outside the window.
+    const txList: import("@get-toasted/helius").HeliusBlockTransaction[] = [];
+    for (let i = 0; i < 25; i++) {
+      if (i === 1 || i === 10 || i === 12 || i === 14 || i === 24) {
+        txList.push(blockTx(`dex_${i}`, RAYDIUM_AMM_V4));
+      } else {
+        txList.push(blockTx(`noise_${i}`, SYSTEM_PROGRAM));
+      }
+    }
+    const block: HeliusBlock = {
+      blockhash: "bh",
+      parentSlot: 99,
+      blockTime: 1_700_000_000,
+      blockHeight: 1,
+      transactions: txList,
+    };
+
+    const parseSpy = vi.fn(async (sigs: string[]) =>
+      sigs.map((sig) => enhancedSwap(sig, "S", USDC, SOL, "100", "5")),
+    );
+    const helius: Partial<HeliusClient> = {
+      getBlock: vi.fn(async () => block),
+      parseTransactions: parseSpy as unknown as HeliusClient["parseTransactions"],
+    };
+    const { redis } = makeFakeRedis();
+    const expander = createBlockExpander({ redis, helius: helius as HeliusClient });
+
+    const swaps = await expander.getBlockSwaps(500n, {
+      anchorSigs: ["dex_12"],
+      windowSize: 10,
+    });
+
+    // Window covers [2, 22]. dex_10, dex_12, dex_14 are in range; dex_1
+    // and dex_24 are out of range.
+    const parsedSigs = parseSpy.mock.calls.flat().flat();
+    expect(parsedSigs).toContain("dex_10");
+    expect(parsedSigs).toContain("dex_12");
+    expect(parsedSigs).toContain("dex_14");
+    expect(parsedSigs).not.toContain("dex_1");
+    expect(parsedSigs).not.toContain("dex_24");
+    expect(swaps.map((s) => s.signature).sort()).toEqual([
+      "dex_10",
+      "dex_12",
+      "dex_14",
+    ]);
+  });
+
+  it("anchor-window: falls back to full parse when anchor isn't in the block", async () => {
+    const block: HeliusBlock = {
+      blockhash: "bh",
+      parentSlot: 99,
+      blockTime: 1_700_000_000,
+      blockHeight: 1,
+      transactions: [
+        blockTx("dex_a", RAYDIUM_AMM_V4),
+        blockTx("dex_b", RAYDIUM_AMM_V4),
+      ],
+    };
+    const parseSpy = vi.fn(async (sigs: string[]) =>
+      sigs.map((sig) => enhancedSwap(sig, "S", USDC, SOL, "100", "5")),
+    );
+    const helius: Partial<HeliusClient> = {
+      getBlock: vi.fn(async () => block),
+      parseTransactions: parseSpy as unknown as HeliusClient["parseTransactions"],
+    };
+    const { redis } = makeFakeRedis();
+    const expander = createBlockExpander({ redis, helius: helius as HeliusClient });
+
+    const swaps = await expander.getBlockSwaps(600n, {
+      anchorSigs: ["sig_not_in_block"],
+    });
+    // Both DEX txs parsed because we fell back to full-block.
+    expect(swaps).toHaveLength(2);
+    const parsedSigs = parseSpy.mock.calls.flat().flat();
+    expect(parsedSigs.sort()).toEqual(["dex_a", "dex_b"]);
+  });
+
+  it("getSwapsForSlots: processes slots in parallel batches", async () => {
+    // Three small one-tx slots. With concurrency 5, all three should
+    // be in flight at once — proven by tracking the max number of
+    // concurrent getBlock calls.
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const helius: Partial<HeliusClient> = {
+      getBlock: vi.fn(async (slot: bigint) => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((r) => setTimeout(r, 20));
+        inFlight -= 1;
+        return {
+          blockhash: "bh",
+          parentSlot: Number(slot) - 1,
+          blockTime: 1_700_000_000,
+          blockHeight: 1,
+          transactions: [blockTx(`s${slot}`, RAYDIUM_AMM_V4)],
+        };
+      }) as unknown as HeliusClient["getBlock"],
+      parseTransactions: vi.fn(async (sigs: string[]) =>
+        sigs.map((sig) => enhancedSwap(sig, "S", USDC, SOL, "100", "5")),
+      ) as unknown as HeliusClient["parseTransactions"],
+    };
+    const { redis } = makeFakeRedis();
+    const expander = createBlockExpander({ redis, helius: helius as HeliusClient });
+
+    const swaps = await expander.getSwapsForSlots([700n, 701n, 702n]);
+    expect(swaps).toHaveLength(3);
+    expect(maxInFlight).toBeGreaterThanOrEqual(2); // proves parallelism
+  });
+
   it("skips block txs that don't touch a tracked DEX program", async () => {
     const block: HeliusBlock = {
       blockhash: "bh",

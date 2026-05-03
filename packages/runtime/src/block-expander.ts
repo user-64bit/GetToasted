@@ -70,12 +70,38 @@ export function createBlockExpander(opts: Opts) {
   const log = (opts.logger ?? rootLogger).child({ component: "block-expander" });
 
   /**
-   * Returns parsed swaps for every tracked-DEX swap in `slot`, in true
-   * block order. Empty array means "we looked and there were none" (or
-   * the block was skipped) — distinct from a cache miss.
+   * Returns parsed swaps from `slot`, in true block order. Two modes:
+   *
+   *   - **Full-block** (no anchors): parse every tracked-DEX swap in
+   *     the block. Slow and credit-heavy on busy mainnet slots — a
+   *     popular DEX block can have 100+ tracked swaps. Used as a
+   *     fallback and for callers that genuinely need the full set.
+   *
+   *   - **Narrow** (anchor sigs supplied): parse only swaps within
+   *     ±windowSize block positions of any anchor. The anchor is
+   *     typically the wallet-under-scan's own swap signature; we don't
+   *     care about swaps far from the wallet's tx because tight
+   *     sandwiches always have the bot's legs immediately adjacent
+   *     (modulo non-DEX tip transfers, which the L2 nearest-neighbor
+   *     rule already handles). For a typical wallet-swap slot this
+   *     drops the parsed-tx count from ~100 to ~5-10 and the per-slot
+   *     latency from ~3s to ~500ms. Used by the scanner and realtime
+   *     detector.
+   *
+   * Empty array means "we looked and there were none" (or the block
+   * was skipped, or no anchors were found in the block) — distinct
+   * from a cache miss.
    */
-  async function getBlockSwaps(slot: bigint): Promise<ParsedSwap[]> {
-    const cacheKey = redisKeys.blockSwaps(slot);
+  async function getBlockSwaps(
+    slot: bigint,
+    opts: { anchorSigs?: string[]; windowSize?: number } = {},
+  ): Promise<ParsedSwap[]> {
+    const anchorSigs = opts.anchorSigs ?? [];
+    const windowSize = opts.windowSize ?? DEFAULT_WINDOW_SIZE;
+    const cacheKey =
+      anchorSigs.length === 0
+        ? redisKeys.blockSwaps(slot)
+        : narrowCacheKey(slot, anchorSigs, windowSize);
     const missingKey = redisKeys.blockSwapsMissing(slot);
 
     const [cached, missing] = await redis.mget(cacheKey, missingKey);
@@ -114,7 +140,7 @@ export function createBlockExpander(opts: Opts) {
     }
 
     try {
-      const swaps = await fetchAndParseSlot(slot);
+      const swaps = await fetchAndParseSlot(slot, anchorSigs, windowSize);
       if (swaps === null) {
         // Block was skipped / pruned — negative cache.
         await redis.set(
@@ -155,18 +181,24 @@ export function createBlockExpander(opts: Opts) {
     }
   }
 
-  async function fetchAndParseSlot(slot: bigint): Promise<ParsedSwap[] | null> {
+  async function fetchAndParseSlot(
+    slot: bigint,
+    anchorSigs: string[],
+    windowSize: number,
+  ): Promise<ParsedSwap[] | null> {
     const block = await helius.getBlock(slot);
     if (!block) return null;
 
     const txs = block.transactions ?? [];
 
     // Walk the block once. Build:
-    //  - candidates: signatures whose outer or inner instructions reference
-    //    a tracked DEX program. These get sent to Helius enhanced.
-    //  - sigToIndex: true block position keyed by signature, so we can
-    //    reattach `txIndexInBlock` after the enhanced round trip.
-    const candidates: string[] = [];
+    //  - sigToIndex: true block position keyed by signature, used for
+    //    anchor-window narrowing AND to reattach `txIndexInBlock` after
+    //    the enhanced round trip.
+    //  - allCandidates: signatures whose outer or inner instructions
+    //    reference a tracked DEX program. The narrow path filters this
+    //    set further by block-position window.
+    const allCandidates: string[] = [];
     const sigToIndex = new Map<string, number>();
 
     for (let i = 0; i < txs.length; i++) {
@@ -179,7 +211,39 @@ export function createBlockExpander(opts: Opts) {
       sigToIndex.set(sig, i);
 
       if (touchesTrackedDex(blockTx)) {
-        candidates.push(sig);
+        allCandidates.push(sig);
+      }
+    }
+
+    // Narrow the candidate set if the caller supplied anchors. We
+    // resolve anchor sigs to their block positions, build a union of
+    // [pos-W, pos+W] windows, and keep only candidates inside.
+    //
+    // Edge case: anchor sig isn't in the block (Helius block fetch and
+    // gTFA can briefly disagree at a slot boundary). We log and fall
+    // back to the full candidate set rather than return empty — better
+    // a slow scan than a silent miss.
+    let candidates = allCandidates;
+    if (anchorSigs.length > 0) {
+      const anchorIndices: number[] = [];
+      for (const sig of anchorSigs) {
+        const idx = sigToIndex.get(sig);
+        if (idx !== undefined) anchorIndices.push(idx);
+      }
+      if (anchorIndices.length === 0) {
+        log.warn(
+          { slot: slot.toString(), anchorSigs },
+          "block-expander: anchors not in block — falling back to full parse",
+        );
+      } else {
+        candidates = allCandidates.filter((sig) => {
+          const idx = sigToIndex.get(sig);
+          if (idx === undefined) return false;
+          for (const a of anchorIndices) {
+            if (Math.abs(idx - a) <= windowSize) return true;
+          }
+          return false;
+        });
       }
     }
 
@@ -255,6 +319,7 @@ export function createBlockExpander(opts: Opts) {
         slot: slot.toString(),
         blockTxCount: txs.length,
         candidateCount: candidates.length,
+        narrowed: anchorSigs.length > 0 && candidates !== allCandidates,
         parsedSwaps: out.length,
       },
       "block-expander: slot expanded",
@@ -266,18 +331,34 @@ export function createBlockExpander(opts: Opts) {
   return {
     getBlockSwaps,
     /**
-     * Convenience for the scanner: expand a set of slots, returning a flat
-     * `ParsedSwap[]` across all of them. Slots are processed sequentially to
-     * keep within Helius's rate limit; parallelism would just stall on the
-     * same token bucket inside HeliusClient.
+     * Convenience for the scanner: expand a set of slots, returning a
+     * flat `ParsedSwap[]` across all of them.
      *
-     * Pass `opts.deadline` (epoch ms) to stop early — block expansion of a
-     * busy DEX wallet can take minutes, so the scanner uses this to enforce
-     * its own time budget. We return whatever was expanded before the cut.
+     * Slots are processed in parallel batches — Helius's token bucket
+     * (50 RPS sustained, 100 burst) handles ~5-way concurrency without
+     * throttling, and the per-slot wall time is dominated by HTTP
+     * round-trip latency, not CPU. With sequential processing a busy
+     * DEX wallet's 30 candidate slots blow past a 30-second scan
+     * budget; parallelism brings them well inside it.
+     *
+     * Pass `opts.anchorSigsBySlot` to enable narrow expansion: each
+     * slot only parses swaps within ±windowSize block positions of the
+     * given anchor sigs. The scanner uses this with the wallet's own
+     * sigs as anchors; it cuts per-slot latency by 5-10x because a
+     * narrow window has ~5-10 tracked-DEX candidates instead of ~100.
+     *
+     * Pass `opts.deadline` (epoch ms) to stop early — block expansion
+     * of a busy DEX wallet can still hit the budget if the wallet has
+     * many slots. We return whatever was expanded before the cut.
      */
     async getSwapsForSlots(
       slots: Iterable<bigint>,
-      opts?: { deadline?: number },
+      opts?: {
+        deadline?: number;
+        anchorSigsBySlot?: Map<string, string[]>;
+        windowSize?: number;
+        concurrency?: number;
+      },
     ): Promise<ParsedSwap[]> {
       const unique = new Set<string>();
       const ordered: bigint[] = [];
@@ -288,9 +369,10 @@ export function createBlockExpander(opts: Opts) {
         ordered.push(s);
       }
 
+      const concurrency = Math.max(1, opts?.concurrency ?? DEFAULT_CONCURRENCY);
       const all: ParsedSwap[] = [];
       let expanded = 0;
-      for (const slot of ordered) {
+      for (let i = 0; i < ordered.length; i += concurrency) {
         if (opts?.deadline !== undefined && Date.now() > opts.deadline) {
           log.warn(
             { expanded, remaining: ordered.length - expanded },
@@ -298,13 +380,47 @@ export function createBlockExpander(opts: Opts) {
           );
           break;
         }
-        const swaps = await getBlockSwaps(slot);
-        for (const s of swaps) all.push(s);
-        expanded += 1;
+        const batch = ordered.slice(i, i + concurrency);
+        const results = await Promise.all(
+          batch.map((slot) =>
+            getBlockSwaps(slot, {
+              anchorSigs: opts?.anchorSigsBySlot?.get(slot.toString()),
+              windowSize: opts?.windowSize,
+            }),
+          ),
+        );
+        for (const swaps of results) {
+          for (const s of swaps) all.push(s);
+        }
+        expanded += batch.length;
       }
       return all;
     },
   };
+}
+
+const DEFAULT_CONCURRENCY = 5;
+// Default block-position window for narrow expansion. A ±10-tx window
+// catches tight bundled sandwiches (3-tx bundles + a few interleaving
+// tip / non-DEX txs) with ample slack. Wide / blind sandwiches need
+// L4/L5 detection which doesn't ship until later, so we don't enlarge
+// the window for them.
+const DEFAULT_WINDOW_SIZE = 10;
+
+function narrowCacheKey(
+  slot: bigint,
+  anchorSigs: string[],
+  windowSize: number,
+): string {
+  // Deterministic short digest of the anchor set + window. Sigs are
+  // 88-char base58; we keep the leading 8 chars per sig — collision
+  // surface is negligible at the 1-3 anchors we actually pass per
+  // slot, and the key stays a manageable length.
+  const digest = [...anchorSigs]
+    .sort()
+    .map((s) => s.slice(0, 8))
+    .join("-");
+  return `${redisKeys.blockSwaps(slot)}:n:${windowSize}:${digest}`;
 }
 
 function touchesTrackedDex(tx: HeliusBlockTransaction): boolean {
