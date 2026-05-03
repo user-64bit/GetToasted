@@ -102,9 +102,14 @@ async function processJob(job: Job<RealtimeJobData>): Promise<{ detected: number
   const victimWallet = tx.feePayer;
   const slot = BigInt(tx.slot);
 
-  const allSwaps = await blockExpander.getBlockSwaps(slot);
+  // Anchor on the webhook tx itself — we only care about sandwiches
+  // around this single victim swap, not the full block. Narrow
+  // expansion is 5-10x cheaper than full-block parse for busy slots.
+  const allSwaps = await blockExpander.getBlockSwaps(slot, {
+    anchorSigs: [tx.signature],
+  });
   if (allSwaps.length < 3) {
-    // Not enough swaps in the slot for any sandwich triple. Block
+    // Not enough swaps in the window for any sandwich triple. Block
     // expansion may also have failed transiently — historical scanner
     // catches it later.
     return { detected: 0 };
