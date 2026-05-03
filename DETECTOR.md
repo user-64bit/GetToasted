@@ -29,17 +29,35 @@ Every wallet swap is treated as a *victim candidate*. The pipeline:
 
 | Layer | Signal | Confidence | Status | Detects |
 |---|---|---|---|---|
-| L1 | Jito bundle membership: front + victim + back co-bundled | 1.00 | confirmed | Tight bundled sandwiches |
-| L2 | Block adjacency: txIndex i, i+1, i+2 with same f+b signer + back sells ≥95% of front output | 0.95 | confirmed | Validator-direct / private orderflow sandwiches |
+| L1 | *(disabled — see below)* Jito bundle membership: front + victim + back co-bundled | 1.00 | confirmed | Tight bundled sandwiches (when enabled) |
+| L2 | Nearest same-pool neighbor: front + victim + back form an A→B→A shape with same f+b signer, back sells ≥95% of front output | 0.95 | confirmed | All tight sandwiches (bundled + validator-direct) |
 | L3 | *(not enabled)* Same-slot, known-bot signer, A→B→A | 0.85 | confirmed | Bot-attributed wide sandwiches |
 | L4 | *(not enabled)* Same-slot statistical match, unknown signer | 0.65 | suspected | Wide / blind sandwiches |
 | L5 | *(not enabled)* Cross-slot, known-bot, multi-pool route | 0.55 | suspected | Jupiter route victims |
 
-L1 and L2 are shipped in this rewrite per the §13 rollout plan: ship +
-validate against ground truth before turning on the lower-confidence
-layers. L3-L5 are scaffolded in `detector-types.ts` (`DetectionLayer`)
-and the schema (`detection_layer` column) so adding them later is purely
-additive.
+**L1 status (Jito):** Jito does not publish a public REST endpoint for
+`signature → bundle` reverse lookup. Their docs only expose
+`getBundleStatuses` (requires the bundle id, which we don't have) and a
+5-minute in-flight window. Until a paid indexer ships
+(Helius MEV API, sandwiched.me, Ghostlogs, or a Jito Block Engine
+subscription), L1 is a no-op stub that always returns null. The
+orchestrator falls through to L2; tight bundled sandwiches are still
+detected (Jito bundles land contiguously, so L2's nearest-neighbor
+rule catches them), and the bundled-vs-direct distinction is
+approximated by tip-transfer presence on the front/back swap (parser
+already extracts `jitoTipLamports` from native transfers to known tip
+accounts).
+
+**L2 — nearest-neighbor adjacency, not strict.** The original spec
+required `victim.txIndex ± 1` against the absolute block index. That
+misses real sandwiches when a tip-transfer system tx (or any non-DEX
+tx) interleaves the bundle's swaps in the block's tx list. L2 instead
+finds the closest preceding and closest following same-pool same-signer
+candidates, ignoring non-DEX txs entirely. Confidence stays at 0.95
+because the shape predicate (same pool, same f+b signer, reversed
+direction) plus the 95% sell-through tolerance band already eliminate
+the false-positive surface — the relaxation widens *which* sandwiches
+we catch, not *what we count as one*.
 
 ## Loss methods
 
