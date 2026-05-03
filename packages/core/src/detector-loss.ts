@@ -19,15 +19,28 @@ import { getDexFeeBps, isCpmmDex } from "./dex-fees.js";
 export function computeLoss(match: LayerMatch): LossCalculation {
   const { victim, frontRun, backRun } = match;
 
-  // Method A: CPMM reconstruction — only when reserves are available.
-  // Reserves come from the front-run's preTokenBalances — that's the
-  // pool state immediately before the attack.
+  // Method A: CPMM reconstruction — only when reserves are available
+  // AND the reserve mints actually match the swap's mints. The
+  // reserve-inference heuristic in the block expander can occasionally
+  // mis-identify the vault pair (custom routes, wrapped-SOL ATAs that
+  // look like vaults). reconstructCpmmLoss signals that case by
+  // returning lossConfidence === 0; we fall through to the proxy
+  // instead of returning a zero-loss row that the post-filter would
+  // drop anyway. This is the difference between "we found a sandwich
+  // but couldn't price it precisely" and "no sandwich found" — the
+  // former is what we want for the dashboard.
   if (
     isCpmmDex(victim.dex) &&
     frontRun.poolReservesBefore !== null &&
     frontRun.poolReservesBefore !== undefined
   ) {
-    return reconstructCpmmLoss(victim, frontRun.poolReservesBefore, victim.dex);
+    const cpmm = reconstructCpmmLoss(
+      victim,
+      frontRun.poolReservesBefore,
+      victim.dex,
+    );
+    if (cpmm.lossConfidence > 0) return cpmm;
+    // fall through to proxy / failed-backrun
   }
 
   // Method C: Failed back-run — bot's back-run reverted. The victim
@@ -38,7 +51,7 @@ export function computeLoss(match: LayerMatch): LossCalculation {
   }
 
   // Method B: Back-run profit proxy — default for CLMM and any case
-  // where reserves aren't available.
+  // where reserves aren't available or were mint-mismatched.
   return backrunProxyLoss(victim, frontRun, backRun, match.jitoTipLamports);
 }
 

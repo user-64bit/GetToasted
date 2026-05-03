@@ -266,6 +266,48 @@ describe("computeLoss dispatcher", () => {
     expect(loss.method).toBe("backrun-profit-proxy");
   });
 
+  it("falls through to proxy when CPMM reserves are present but mints don't match the swap", () => {
+    // Inferred vault pair has different mints than the swap (block expander
+    // heuristic occasionally picks up wrong vaults on custom routes). The
+    // dispatcher must NOT return reconstructCpmmLoss's zero-loss sentinel
+    // — that would let the post-filter drop the detection entirely. Instead
+    // it falls through to the back-run profit proxy.
+    const wrongMintReserves: PoolReserves = {
+      tokenA: 10_000_000_000n,
+      tokenB: 50_000_000_000n,
+      tokenAMint: "WRONG_MINT_A",
+      tokenBMint: "WRONG_MINT_B",
+    };
+    const front = mkSwap({
+      inputAmount: 1_000_000_000n,
+      outputAmount: 4_950_000n,
+      poolReservesBefore: wrongMintReserves,
+    });
+    const victim = mkSwap({ inputAmount: 500_000_000n, outputAmount: 2_400_000n });
+    const back = mkSwap({
+      inputMint: SOL,
+      outputMint: USDC,
+      inputAmount: 4_950_000n,
+      outputAmount: 1_100_000_000n,
+    });
+    const match: LayerMatch = {
+      victim,
+      frontRun: front,
+      backRun: back,
+      attacker: front.signer,
+      pool: "POOL1",
+      layer: "L2",
+      confidence: 0.95,
+      status: "confirmed",
+      jitoBundled: false,
+      jitoTipLamports: 0n,
+    };
+    const loss = computeLoss(match);
+    expect(loss.method).toBe("backrun-profit-proxy");
+    expect(loss.lossConfidence).toBe(0.85);
+    expect(loss.lossInOutputToken).toBeGreaterThan(0n);
+  });
+
   it("uses failed-backrun method when the back-run reverted (regardless of pool type)", () => {
     const front = mkSwap({ inputAmount: 1_000_000_000n, outputAmount: 5_000_000n });
     const victim = mkSwap({ inputAmount: 1_000_000_000n, outputAmount: 4_500_000n });
