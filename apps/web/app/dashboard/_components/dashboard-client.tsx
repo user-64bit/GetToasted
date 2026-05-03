@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMe } from "../../lib/api/auth";
 import {
   useStartScan,
@@ -17,6 +18,8 @@ interface DashboardClientProps {
 }
 
 export function DashboardClient({ wallet }: DashboardClientProps) {
+  const qc = useQueryClient();
+
   const summaryQ = useWalletSummary(wallet, {
     refetchInterval: (q) => {
       const status = q.state.data?.scanStatus;
@@ -25,6 +28,30 @@ export function DashboardClient({ wallet }: DashboardClientProps) {
   });
 
   const sandwichesQ = useWalletSandwiches(wallet, { limit: 100 });
+
+  // The sandwiches query has no live signal of its own — it loads once
+  // on mount and then sits idle. During a scan the worker is still
+  // writing detections, so the first fetch usually returns an empty
+  // array. When the wallet's scan flips to "complete" the worker has
+  // just finished its final batchInsertDetections; we invalidate the
+  // sandwiches query (prefix-match — works for any `q` variant) so the
+  // dashboard refetches and surfaces the newly-persisted rows. Without
+  // this invalidation the UI gets stuck at "Loading attacks…" with
+  // stale empty data even though detections are in the database.
+  //
+  // We track the previous status with a ref so the invalidate fires on
+  // the *transition* (scanning|pending → complete), not every rerender
+  // while status is "complete".
+  const status = summaryQ.data?.scanStatus;
+  const prevStatusRef = useRef<typeof status>(undefined);
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = status;
+    if (status !== "complete") return;
+    if (prev === "complete") return; // already invalidated on the transition
+    if (!wallet) return;
+    qc.invalidateQueries({ queryKey: ["wallet", wallet, "sandwiches"] });
+  }, [status, wallet, qc]);
 
   const data = useMemo(() => {
     if (!summaryQ.data || !sandwichesQ.data) return null;
@@ -44,21 +71,32 @@ export function DashboardClient({ wallet }: DashboardClientProps) {
     );
   }
 
-  const status = summaryQ.data?.scanStatus ?? "unknown";
+  const displayStatus = summaryQ.data?.scanStatus ?? "unknown";
 
-  if (status === "unknown") {
+  if (displayStatus === "unknown") {
     return <NoScanYet wallet={wallet} />;
   }
 
-  if (status === "scanning" || status === "pending") {
+  if (displayStatus === "scanning" || displayStatus === "pending") {
     return <ScanningView wallet={wallet} summary={summaryQ.data!} />;
   }
 
-  if (status === "failed") {
+  if (displayStatus === "failed") {
     return (
       <ScanFailed
         wallet={wallet}
         reason={summaryQ.data?.scanError ?? "Unknown scan failure"}
+      />
+    );
+  }
+
+  // Surface sandwiches-query errors instead of letting them fall through
+  // to the perpetual "Loading attacks…" placeholder.
+  if (sandwichesQ.isError) {
+    return (
+      <CenterMessage
+        label="Failed to load attacks"
+        detail={errorMessage(sandwichesQ.error)}
       />
     );
   }
