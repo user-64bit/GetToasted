@@ -68,6 +68,22 @@ export async function batchInsertDetections(
     }
 
     for (const [wallet, agg] of byVictim) {
+      // Pre-serialize Dates to ISO strings + explicit ::timestamptz cast.
+      //
+      // Without the cast, Drizzle templates `${agg.first}` as a bare
+      // parameter (`$N`) inside LEAST(). Postgres can't infer the
+      // parameter's type from a polymorphic LEAST call alone, so the
+      // server's ParameterDescription comes back as `unknown`/text.
+      // postgres-js then tries to encode the Date as text via
+      // Buffer.byteLength(value) — which throws
+      // ERR_INVALID_ARG_TYPE because Date isn't a string/Buffer.
+      //
+      // Two layers of belt-and-suspenders:
+      //   1. .toISOString() to send a real string parameter
+      //   2. ::timestamptz so postgres parses the string back as a
+      //      timestamp on the server side, regardless of inference.
+      const firstIso = agg.first.toISOString();
+      const lastIso = agg.last.toISOString();
       await tx
         .insert(wallets)
         .values({
@@ -83,8 +99,8 @@ export async function batchInsertDetections(
           set: {
             sandwichCount: sql`${wallets.sandwichCount} + ${agg.count}`,
             totalLossUsd: sql`${wallets.totalLossUsd} + ${agg.lossUsd.toFixed(2)}`,
-            firstAttackAt: sql`LEAST(${wallets.firstAttackAt}, ${agg.first})`,
-            lastAttackAt: sql`GREATEST(${wallets.lastAttackAt}, ${agg.last})`,
+            firstAttackAt: sql`LEAST(${wallets.firstAttackAt}, ${firstIso}::timestamptz)`,
+            lastAttackAt: sql`GREATEST(${wallets.lastAttackAt}, ${lastIso}::timestamptz)`,
           },
         });
     }
@@ -147,8 +163,13 @@ export async function getSandwichesForWallet(
     );
   }
   if (page.cursor) {
+    // Same Date-in-row-compare hazard as the LEAST/GREATEST upserts
+    // above — without the cast postgres can't infer the cursor's
+    // timestamp param type from a row-compare and postgres-js fails
+    // to encode the Date. Send ISO string + timestamptz cast.
+    const cursorBlockTimeIso = page.cursor.blockTime.toISOString();
     conditions.push(
-      sql`(${detectedSandwiches.blockTime}, ${detectedSandwiches.id}) < (${page.cursor.blockTime}, ${page.cursor.id})`,
+      sql`(${detectedSandwiches.blockTime}, ${detectedSandwiches.id}) < (${cursorBlockTimeIso}::timestamptz, ${page.cursor.id})`,
     );
   }
 
