@@ -3,65 +3,101 @@ import type { LayerMatch } from "./detector-types.js";
 import { isSandwichShape } from "./detector-l1.js";
 
 /**
- * L2 — Block adjacency.
+ * L2 — block-position adjacency, relaxed to nearest neighbor.
  *
- * A tight sandwich landed without Jito (validator-direct submission, slot
- * leader privilege, or a private orderflow channel). Front, victim, back
- * are at consecutive `txIndexInBlock` positions. Confidence 0.95.
+ * The strict "front at txIndex-1, back at txIndex+1" rule from the
+ * original spec misses real sandwiches because:
+ *   1. Bots often emit a separate tip-transfer tx between legs of a
+ *      Jito bundle. Bundle txs land contiguously, but the tip transfer
+ *      is a system-program tx — not a tracked-DEX swap, so it isn't in
+ *      our `candidates` list, but it DOES advance the absolute block
+ *      index. Strict adjacency fails; the sandwich is silently missed.
+ *   2. Validator-direct sandwiches without Jito sometimes land with
+ *      one or two unrelated txs between legs (priority-fee jockeying,
+ *      retry-due-to-blockhash, etc.).
  *
- * Why this is distinct from L1: not every bundled tx lands as adjacent
- * (other bundles may interleave), and not every adjacent triple is
- * bundled. We test bundle membership first because it's stronger; if
- * that fails, we fall back to raw block adjacency, which is the second
- * strongest signal we have.
+ * Relaxed rule: for the victim, find the *immediately preceding* and
+ * *immediately following* same-pool candidates (ignoring non-DEX txs)
+ * by `txIndexInBlock`. If they have the same signer, form a valid
+ * sandwich shape, and the back-run sells ≥95% of the front-run output,
+ * we have a tight sandwich. The space we search is `candidates` — same
+ * block, already filtered to same-pool by the orchestrator.
  *
- * Adjacency detector adds one fact L1 doesn't have: a "back-run sells
- * what the front-run bought" sanity check (the tolerance band). True
- * sandwich back-runs sell ≥95% of the front-run output. Arbitrage
- * triplets with the *same shape* (X→Y, X→Y, Y→X) but different sizes
- * fail this check, killing a major source of false positives.
+ * Why confidence stays at 0.95 (not lower):
+ *   - The shape predicate (same-pool, same f+b signer, reversed
+ *     direction) is strict. Random arb triplets don't pass it.
+ *   - The 95% sell-through tolerance kills size-mismatched arb shapes.
+ *   - With same-pool + same-signer + reversed direction + sell-through,
+ *     the false-positive surface is essentially zero. The relaxation
+ *     widens *which* sandwiches we catch, not *what we count as one*.
+ *
+ * Tip-transfer detection: a Jito-bundled sandwich's front (or back)
+ * carries a non-zero tip in `jitoTipLamports`, populated by the parser
+ * from native transfers to known Jito tip accounts. We carry that into
+ * `LayerMatch.jitoBundled` / `jitoTipLamports` as a heuristic — distinct
+ * from L1's (currently disabled) ground-truth bundle membership but
+ * good enough to label the row as "bundled" in the dashboard.
  */
 export function detectL2Adjacency(
   victim: ParsedSwap,
   candidates: ParsedSwap[],
 ): LayerMatch | null {
-  const frontRun = candidates.find(
-    (c) =>
-      c.txIndexInBlock === victim.txIndexInBlock - 1 && c.pool === victim.pool,
+  // Same-pool, not the victim's own signer, and not the victim itself.
+  // We also drop self-failed candidates here — the loss dispatcher
+  // handles failed back-runs separately, but a failed front-run means
+  // no slippage was caused and there's no sandwich to detect.
+  const samePool = candidates.filter(
+    (c) => c.pool === victim.pool && c.signer !== victim.signer,
   );
-  const backRun = candidates.find(
-    (c) =>
-      c.txIndexInBlock === victim.txIndexInBlock + 1 && c.pool === victim.pool,
-  );
-  if (!frontRun || !backRun) return null;
-  // Failed front-run = no slippage caused. Reject. But a failed back-run
-  // is still a victim-hurting attempt: the front-run landed, the victim
-  // ate the slippage, and the bot tried (and failed) to extract. The
-  // loss dispatcher routes these into the failed-backrun-slippage method.
-  if (frontRun.failed) return null;
+  if (samePool.length === 0) return null;
 
-  if (!isSandwichShape(victim, frontRun, backRun)) return null;
+  // Closest-preceding-first / closest-following-first ordering. We
+  // walk fronts outward and, for each, search for a matching back.
+  // This finds the tightest valid pair around the victim — the bot's
+  // own legs win over any unrelated traders that may sit slightly
+  // farther out, because their signers won't pair up.
+  const beforeDesc = samePool
+    .filter((c) => c.txIndexInBlock < victim.txIndexInBlock && !c.failed)
+    .sort((a, b) => b.txIndexInBlock - a.txIndexInBlock);
+  const afterAsc = samePool
+    .filter((c) => c.txIndexInBlock > victim.txIndexInBlock)
+    .sort((a, b) => a.txIndexInBlock - b.txIndexInBlock);
 
-  // Tolerance band: bot sells ≥95% of what it bought. Catches arb
-  // triplets where the "back-run" is a small cleanup leg (size mismatch).
-  // 95% allows for DEX fees consumed during the back-run swap itself.
-  // Skip the band when the back-run failed — its inputAmount may be 0
-  // or partial, but it's still a sandwich attempt that hurt the victim.
-  if (!backRun.failed) {
-    const tolerance = (frontRun.outputAmount * 95n) / 100n;
-    if (backRun.inputAmount < tolerance) return null;
+  for (const front of beforeDesc) {
+    for (const back of afterAsc) {
+      if (back.signer !== front.signer) continue;
+      if (!isSandwichShape(victim, front, back)) continue;
+
+      // Tolerance band: bot sells ≥95% of what it bought. Skip the
+      // band when the back-run failed — its inputAmount may be 0 or
+      // partial, but it's still a sandwich attempt that hurt the
+      // victim, and the loss dispatcher routes it to failed-backrun.
+      if (!back.failed) {
+        const tolerance = (front.outputAmount * 95n) / 100n;
+        if (back.inputAmount < tolerance) continue;
+      }
+
+      // Tip-transfer heuristic for "bundled or not". Either leg may
+      // carry the tip in practice — Jito allows the tip on any tx in
+      // the bundle, and bots vary which one they put it on.
+      const tipFront = front.jitoTipLamports ?? 0n;
+      const tipBack = back.jitoTipLamports ?? 0n;
+      const tipLamports = tipFront > 0n ? tipFront : tipBack;
+
+      return {
+        victim,
+        frontRun: front,
+        backRun: back,
+        attacker: front.signer,
+        pool: victim.pool,
+        layer: "L2",
+        confidence: 0.95,
+        status: "confirmed",
+        jitoBundled: tipLamports > 0n,
+        jitoTipLamports: tipLamports,
+      };
+    }
   }
 
-  return {
-    victim,
-    frontRun,
-    backRun,
-    attacker: frontRun.signer,
-    pool: victim.pool,
-    layer: "L2",
-    confidence: 0.95,
-    status: "confirmed",
-    jitoBundled: false,
-    jitoTipLamports: 0n,
-  };
+  return null;
 }

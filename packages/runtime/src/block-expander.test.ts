@@ -184,23 +184,23 @@ describe("createBlockExpander — end-to-end against a synthetic sandwich block"
     expect(swaps[0]!.signature).toBe("front_sig");
     expect(swaps[2]!.signature).toBe("back_sig");
 
-    // Now feed those swaps into the real layered detector. We expect L2
-    // to fire (consecutive indices 1, 3, 5 — wait, those aren't
-    // consecutive). Adjacency requires victim.idx ± 1 — the synthetic
-    // block places noise txs between front/victim/back to prove the
-    // expander recovers true block positions, but L2 won't fire on
-    // non-adjacent indices. We assert *no* detection here, which is
-    // semantically correct — a sandwich requires the bot to be willing
-    // to land adjacent to the victim, and noise-padded blocks prove
-    // they didn't. The dedicated detector tests cover the positive case
-    // with adjacent indices.
+    // Feed the swaps into the layered detector. The block has system-
+    // program "noise" txs interleaved between the bot's legs (idx 2 and
+    // 4 between front/victim/back at 1/3/5). Those noise txs aren't
+    // tracked-DEX swaps so they're absent from the candidate set; L2's
+    // nearest-neighbor adjacency rule sees front and back as the
+    // closest same-pool same-signer pair around the victim, so the
+    // sandwich is detected. This is the whole point of the relaxed L2 —
+    // tip-transfer txs in real Jito bundles look exactly like this.
     const detections = await detectSandwichesForWalletSwaps({
       wallet: VICTIM,
       walletSwaps: swaps.filter((s) => s.signer === VICTIM),
       blockSwaps: swaps,
       jito: NO_JITO,
     });
-    expect(detections).toHaveLength(0);
+    expect(detections).toHaveLength(1);
+    expect(detections[0]!.layer).toBe("L2");
+    expect(detections[0]!.attacker).toBe(ATTACKER);
   });
 
   it("end-to-end: adjacent front/victim/back triple flows through expander → L2 detector", async () => {

@@ -153,19 +153,60 @@ describe("detectL2Adjacency", () => {
     expect(match!.jitoBundled).toBe(false);
   });
 
-  it("returns null when front is not at victimIndex - 1 (gap between front and victim)", () => {
+  it("still fires when a tip-transfer tx interleaves front and victim (bundle landed contiguously, but the non-DEX tip tx advances the block index)", () => {
+    // Real Jito bundle: front at idx 5, tip-transfer at 6 (NOT in
+    // candidates because it's a system-program tx), victim at 7,
+    // back at 8. Strict adjacency would miss this; nearest-neighbor
+    // catches it.
     const { front, victim, back } = mkSandwichTriple();
-    expect(detectL2Adjacency(victim, [{ ...front, txIndexInBlock: 3 }, back])).toBeNull();
+    const reIndexedVictim = { ...victim, txIndexInBlock: 7 };
+    const reIndexedBack = { ...back, txIndexInBlock: 8 };
+    const match = detectL2Adjacency(reIndexedVictim, [front, reIndexedBack]);
+    expect(match).not.toBeNull();
+    expect(match!.layer).toBe("L2");
   });
 
-  it("returns null when back is not at victimIndex + 1", () => {
+  it("ignores other-pool swaps between the bot's legs (filtered before reaching L2)", () => {
+    // The orchestrator filters by same-pool, but L2 also re-filters
+    // defensively — a different-pool same-block swap shouldn't disrupt
+    // detection.
     const { front, victim, back } = mkSandwichTriple();
-    expect(detectL2Adjacency(victim, [front, { ...back, txIndexInBlock: 9 }])).toBeNull();
+    const noiseSwap = mkSwap({
+      txIndexInBlock: 6, // sits between front (5) and victim (effectively 7 below)
+      signer: "RANDOM_TRADER",
+      pool: "OTHER_POOL",
+      signature: "noise",
+    });
+    const match = detectL2Adjacency(victim, [front, back, noiseSwap]);
+    expect(match).not.toBeNull();
+  });
+
+  it("skips an interleaving same-pool swap by another trader and keeps searching for the bot's back-run", () => {
+    // Another trader hits the same pool between bot.front and bot.back.
+    // The closest-following candidate is the unrelated trader (wrong
+    // signer). The relaxed L2 keeps walking outward and finds the bot's
+    // real back-run further out.
+    const { front, victim, back } = mkSandwichTriple();
+    const interloperBack = mkSwap({
+      txIndexInBlock: 6, // between victim (txIndex 6) — wait, need to re-space
+      signer: "OTHER_TRADER",
+      pool: "POOL1",
+      inputMint: SOL,
+      outputMint: USDC,
+      signature: "interloper",
+    });
+    // Reposition: front=5, victim=6, interloper=7, real_back=8.
+    const interloper = { ...interloperBack, txIndexInBlock: 7 };
+    const realBack = { ...back, txIndexInBlock: 8 };
+    const match = detectL2Adjacency(victim, [front, interloper, realBack]);
+    expect(match).not.toBeNull();
+    expect(match!.attacker).toBe(ATTACKER);
+    expect(match!.backRun.signature).toBe("back_sig");
   });
 
   it("returns null when back-run sells <95% of front-run output (arb-shaped triple)", () => {
     const { front, victim, back } = mkSandwichTriple();
-    const tinyBack = { ...back, inputAmount: 1_000n }; // way under 95% of frontOutput
+    const tinyBack = { ...back, inputAmount: 1_000n };
     expect(detectL2Adjacency(victim, [front, tinyBack])).toBeNull();
   });
 
@@ -176,15 +217,27 @@ describe("detectL2Adjacency", () => {
 
   it("still fires when the back-run is failed — victim ate front-run slippage", () => {
     const { front, victim, back } = mkSandwichTriple();
-    // Failed back-runs bypass the size-tolerance band; the bot tried but
-    // bailed. Loss method dispatcher routes these to failed-backrun-slippage.
     const failedBack = { ...back, failed: true, inputAmount: 0n };
     const match = detectL2Adjacency(victim, [front, failedBack]);
     expect(match).not.toBeNull();
     expect(match!.layer).toBe("L2");
   });
 
-  it("returns null when no candidates are at adjacent positions", () => {
+  it("sets jitoBundled=true and carries tipLamports when either leg has a Jito tip", () => {
+    // Either leg can carry the tip — Jito allows it on any bundle tx.
+    const { front, victim, back } = mkSandwichTriple();
+    const tippedFront = { ...front, jitoTipLamports: 100_000n };
+    const match = detectL2Adjacency(victim, [tippedFront, back]);
+    expect(match!.jitoBundled).toBe(true);
+    expect(match!.jitoTipLamports).toBe(100_000n);
+
+    const tippedBack = { ...back, jitoTipLamports: 75_000n };
+    const m2 = detectL2Adjacency(victim, [front, tippedBack]);
+    expect(m2!.jitoBundled).toBe(true);
+    expect(m2!.jitoTipLamports).toBe(75_000n);
+  });
+
+  it("returns null when no same-pool candidates exist", () => {
     const victim = mkSwap({ txIndexInBlock: 6, signer: VICTIM_WALLET });
     expect(detectL2Adjacency(victim, [])).toBeNull();
   });
