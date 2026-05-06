@@ -234,12 +234,20 @@ function zeroLoss(
   method: LossCalculation["method"],
   lossConfidence: number,
 ): LossCalculation {
+  // lossUsd: null (not 0) — this means "we attempted loss calc but could not
+  // compute a USD value", which Guard 2a (lossUsd < $0.01 → drop) skips.
+  // Setting lossUsd: 0 here was silently dropping real sandwich detections
+  // whenever the loss math failed (e.g. rate-delta sign reversal from noisy
+  // bot-tx amount reconstruction, or mint mismatch in CPMM fallback).
+  // lossInOutputToken: 0n is kept so Guard 2b (< 0.1% ratio) still fires —
+  // that guard separately filters truly negligible detections where we DID
+  // compute the loss but the number is near-zero.
   return {
     method,
     actualOutput: victim.outputAmount,
     counterfactualOutput: victim.outputAmount,
     lossInOutputToken: 0n,
-    lossUsd: 0,
+    lossUsd: null,
     lossConfidence,
   };
 }

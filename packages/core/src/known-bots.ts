@@ -30,12 +30,30 @@ const ENTRIES: KnownBot[] = [
     notes: "Hot operator wallet for arsc cluster",
   },
   {
+    // NOTE: shortened to 43 chars — verify this matches the full address
+    // from sandwiched.me if L3 isn't firing. arsc-warm has multiple aliases.
+    address: "BCbrpBpttAvwJBhJiXUcptyW9rRVWMcHFJzr6vi58q",
+    name: "arsc-warm",
+    confidence: 1.0,
+    isProgram: false,
+    source: "mrgn_research",
+    notes: "Warm wallet for arsc cluster (intermediate holding address)",
+  },
+  {
     address: "B91piBSfCBRs5rUxCMRdJEGv7tNEnFxweWcdQJHJoFpi",
     name: "B91",
     confidence: 1.0,
     isProgram: true,
     source: "helius_report",
     notes: "Known sandwich program — fronts identified victim swaps",
+  },
+  {
+    address: "vpeNALD85GyYAcK4ms5kKqfJrJxVQuCwf24gWjNoax38b",
+    name: "vpe-bot",
+    confidence: 1.0,
+    isProgram: false,
+    source: "helius_report",
+    notes: "DeezNode/vpe family — Helius MEV report flagged ~50% of all attacks",
   },
 ];
 

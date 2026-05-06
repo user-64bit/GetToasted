@@ -226,10 +226,45 @@ export function createBlockExpander(opts: Opts) {
     let candidates = allCandidates;
     if (anchorSigs.length > 0) {
       const anchorIndices: number[] = [];
+      const anchorAccounts = new Set<string>();
+
+      // Global accounts to ignore for intersection to prevent matching every tx
+      const IGNORED_ACCOUNTS = new Set([
+        "11111111111111111111111111111111", // System
+        "ComputeBudget111111111111111111111111111111",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+        "SysvarRent111111111111111111111111111111111",
+        "SysvarClock11111111111111111111111111111111",
+        "So11111111111111111111111111111111111111112", // wSOL
+        "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ", // Pump Fee
+        "5Q544fKrFoe6tsEbD7S8EmxjmRxXrRQkvTqoVNibUdCG", // Raydium Authority
+        "CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM", // Orca Authority
+        ...TRACKED_DEX_PROGRAM_ID_SET,
+      ]);
+
       for (const sig of anchorSigs) {
         const idx = sigToIndex.get(sig);
-        if (idx !== undefined) anchorIndices.push(idx);
+        if (idx !== undefined) {
+          anchorIndices.push(idx);
+          const blockTx = txs[idx];
+          if (blockTx) {
+            for (const acc of blockTx.transaction?.message?.accountKeys ?? []) {
+              const pubkey = typeof acc === "string" ? acc : acc.pubkey;
+              if (pubkey && !IGNORED_ACCOUNTS.has(pubkey)) {
+                anchorAccounts.add(pubkey);
+              }
+            }
+            const pre = blockTx.meta?.preTokenBalances ?? [];
+            const post = blockTx.meta?.postTokenBalances ?? [];
+            for (const tb of [...pre, ...post]) {
+              if (tb.mint && !IGNORED_ACCOUNTS.has(tb.mint)) anchorAccounts.add(tb.mint);
+            }
+          }
+        }
       }
+
       if (anchorIndices.length === 0) {
         log.warn(
           { slot: slot.toString(), anchorSigs },
@@ -239,9 +274,35 @@ export function createBlockExpander(opts: Opts) {
         candidates = allCandidates.filter((sig) => {
           const idx = sigToIndex.get(sig);
           if (idx === undefined) return false;
+
+          // The anchor tx itself is always included
+          if (anchorIndices.includes(idx)) return true;
+
+          // First pass: positional window
+          let withinWindow = false;
           for (const a of anchorIndices) {
-            if (Math.abs(idx - a) <= windowSize) return true;
+            if (Math.abs(idx - a) <= windowSize) {
+              withinWindow = true;
+              break;
+            }
           }
+          if (!withinWindow) return false;
+
+          // Second pass: account intersection
+          const blockTx = txs[idx];
+          if (!blockTx) return false;
+
+          for (const acc of blockTx.transaction?.message?.accountKeys ?? []) {
+            const pubkey = typeof acc === "string" ? acc : acc.pubkey;
+            if (pubkey && anchorAccounts.has(pubkey)) return true;
+          }
+
+          const pre = blockTx.meta?.preTokenBalances ?? [];
+          const post = blockTx.meta?.postTokenBalances ?? [];
+          for (const tb of [...pre, ...post]) {
+            if (tb.mint && anchorAccounts.has(tb.mint)) return true;
+          }
+
           return false;
         });
       }
@@ -400,12 +461,11 @@ export function createBlockExpander(opts: Opts) {
 }
 
 const DEFAULT_CONCURRENCY = 5;
-// Default block-position window for narrow expansion. A ±10-tx window
-// catches tight bundled sandwiches (3-tx bundles + a few interleaving
-// tip / non-DEX txs) with ample slack. Wide / blind sandwiches need
-// L4/L5 detection which doesn't ship until later, so we don't enlarge
-// the window for them.
-const DEFAULT_WINDOW_SIZE = 10;
+// Default window size. We now use an account-intersection filter across the entire block
+// to find same-pool candidate swaps. We set this to 2000 so the positional window covers
+// the whole block, allowing the account-intersection logic to capture wide sandwiches
+// separated by 1000+ txs without exploding the Helius credit budget.
+const DEFAULT_WINDOW_SIZE = 2000;
 
 function narrowCacheKey(
   slot: bigint,

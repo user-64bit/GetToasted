@@ -26,8 +26,8 @@ export function passesPostFilters(detection: SandwichDetection): boolean {
 
   // Guard 2a: negligible USD loss. < $0.01 = below our reporting
   // resolution. Skip the guard entirely if loss USD wasn't computed
-  // (long-tail memecoin with no price oracle data) — the loss is real,
-  // we just can't denominate it.
+  // (long-tail memecoin with no price oracle data, or loss calc failed)
+  // — the loss is real or unknown, not zero.
   if (detection.loss.lossUsd !== null && detection.loss.lossUsd < 0.01) {
     return false;
   }
@@ -35,7 +35,13 @@ export function passesPostFilters(detection: SandwichDetection): boolean {
   // Guard 2b: negligible relative loss. < 0.1% of the victim's output
   // is statistical noise from rounding, fees on the back-run, or
   // arbitrage residual. Real sandwiches typically extract 0.5-5%.
-  if (detection.victim.outputAmount > 0n) {
+  //
+  // Skip when lossConfidence === 0 — that signals the loss math fell back
+  // to zero due to a data quality issue (CPMM mint mismatch, no reserves),
+  // NOT because the sandwich was truly negligible. Applying the ratio guard
+  // here would silently drop real detections where we simply couldn't
+  // compute a number. Guard 2a will pass because lossUsd is null in that case.
+  if (detection.victim.outputAmount > 0n && detection.loss.lossConfidence > 0) {
     // Compute lossPct as a ratio of bigints, then convert. Doing this in
     // pure float (Number(loss) / Number(out)) loses precision on large
     // memecoin amounts (>2^53 base units).

@@ -16,8 +16,12 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
   },
   "devDependencies": {
+    "@get-toasted/core": "workspace:*",
+    "@get-toasted/helius": "workspace:*",
+    "@get-toasted/runtime": "workspace:*",
     "@types/node": "^22.15.3",
     "dotenv": "^17.4.2",
+    "ioredis": "^5.5.0",
     "prettier": "^3.7.4",
     "tsx": "^4.19.0",
     "turbo": "^2.9.6",

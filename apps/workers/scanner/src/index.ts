@@ -140,11 +140,19 @@ function discoverScanCandidates(
 }
 
 function walletTxTouchesTrackedDex(tx: HeliusEnhancedTransaction): boolean {
+  // Primary: outer and inner instructions from the instruction list.
   for (const ix of tx.instructions ?? []) {
     if (TRACKED_DEX_PROGRAM_ID_SET.has(ix.programId)) return true;
     for (const inner of ix.innerInstructions ?? []) {
       if (TRACKED_DEX_PROGRAM_ID_SET.has(inner.programId)) return true;
     }
+  }
+  // Secondary: events.swap.innerSwaps populated by Helius for Jupiter routes.
+  // The outer instruction is the Jupiter aggregator (untracked), so the
+  // instruction scan above returns false even though the route hits a
+  // tracked DEX sub-program. events.swap is always present for Jupiter swaps.
+  for (const leg of tx.events?.swap?.innerSwaps ?? []) {
+    if (TRACKED_DEX_PROGRAM_ID_SET.has(leg.programInfo?.account ?? "")) return true;
   }
   return false;
 }

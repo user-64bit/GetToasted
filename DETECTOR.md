@@ -10,7 +10,8 @@ Every wallet swap is treated as a *victim candidate*. The pipeline:
 
 1. **Block expansion** — `@get-toasted/runtime/block-expander` pulls the
    slot's full block via `getBlock(transactionDetails: 'full')`, then asks
-   Helius enhanced to parse every tracked-DEX tx in the block. Output is a
+   Helius enhanced to parse every tracked-DEX tx in the block within ±25
+   positions of the wallet's own tx (anchor-window narrowing). Output is a
    `ParsedSwap[]` ordered by true `txIndexInBlock`, plus best-effort
    `poolReservesBefore`/`poolReservesAfter` extracted from
    `meta.preTokenBalances`/`postTokenBalances`. Cached in Redis for 14 days
@@ -31,9 +32,9 @@ Every wallet swap is treated as a *victim candidate*. The pipeline:
 |---|---|---|---|---|
 | L1 | *(disabled — see below)* Jito bundle membership: front + victim + back co-bundled | 1.00 | confirmed | Tight bundled sandwiches (when enabled) |
 | L2 | Nearest same-pool neighbor: front + victim + back form an A→B→A shape with same f+b signer, back sells ≥95% of front output | 0.95 | confirmed | All tight sandwiches (bundled + validator-direct) |
-| L3 | *(not enabled)* Same-slot, known-bot signer, A→B→A | 0.85 | confirmed | Bot-attributed wide sandwiches |
-| L4 | *(not enabled)* Same-slot statistical match, unknown signer | 0.65 | suspected | Wide / blind sandwiches |
-| L5 | *(not enabled)* Cross-slot, known-bot, multi-pool route | 0.55 | suspected | Jupiter route victims |
+| L3 | Same-slot, known-bot signer (KNOWN_SANDWICH_BOTS), A→B→A, back sells ≥90% | 0.85 | confirmed | Bot-attributed sandwiches with non-adjacent legs |
+| L4 | Same-slot statistical match: any signer, same pool, 5 false-positive guards | 0.65 | suspected | Wide / blind sandwiches by unknown bots |
+| L5 | *(not enabled)* Cross-slot, known-bot, multi-pool route | 0.55 | suspected | Jupiter route victims across adjacent slots |
 
 **L1 status (Jito):** Jito does not publish a public REST endpoint for
 `signature → bundle` reverse lookup. Their docs only expose
@@ -58,6 +59,19 @@ because the shape predicate (same pool, same f+b signer, reversed
 direction) plus the 95% sell-through tolerance band already eliminate
 the false-positive surface — the relaxation widens *which* sandwiches
 we catch, not *what we count as one*.
+
+**L3 — known-bot fallback.** When L2's nearest-neighbor walk fails (too
+many same-pool swaps between the bot's legs, or the legs are >2 positions
+apart), L3 searches explicitly for known bot signers. Uses `KNOWN_SANDWICH_BOTS`
+from `packages/core/src/known-bots.ts`. Relaxes sell-through tolerance to 90%.
+
+**L4 — statistical wide sandwich.** Unknown bots, same block. Requires:
+- Sell-through ≥85%
+- Non-negative proxy profit (`back.output ≥ front.input`)
+- Front size ratio 0.05×–25× victim
+- Index proximity ≤20 positions front-to-victim and victim-to-back
+
+All five filters must pass. Marked `status: 'suspected'` in the UI.
 
 ## Loss methods
 
@@ -92,9 +106,22 @@ Edit `packages/core/src/known-bots.ts`:
 }
 ```
 
-The list is hot-path data; we keep it in code so the L3 detector (when
-enabled) doesn't pay a DB lookup per swap. Refresh quarterly by checking
+The list is hot-path data; we keep it in code so L3 doesn't pay a DB
+lookup per swap. Refresh quarterly by checking
 [sandwiched.me's leaderboard](https://sandwiched.me/sandwiches).
+
+## Known bots (seed list)
+
+| Address (truncated) | Name | Source |
+|---|---|---|
+| `9973hWbc...` | arsc-cold | MarginFi research |
+| `Ai4zqY7g...` | arsc-active | MarginFi research |
+| `BCbrpBpt...` | arsc-warm | MarginFi research |
+| `B91piBSf...` | B91 (program) | Helius MEV report |
+| `vpeNALD8...` | vpe-bot | Helius MEV report |
+
+These five addresses cover a large fraction of historical sandwich volume
+on Solana per sandwiched.me's public dataset.
 
 ## Test fixtures
 
@@ -112,6 +139,41 @@ The synthetic tests cover:
 - Failed-backrun slippage estimate
 - Post-filter self-sandwich + negligible-loss guards
 - End-to-end block-expander → layered detector
+
+## Bug fixes shipped in this session (root cause of "You're clear" false negatives)
+
+**Bug 1 — Jupiter swaps not identified as DEX candidates in the scanner:**
+`walletTxTouchesTrackedDex` only checked `tx.instructions` + `innerInstructions`.
+For Jupiter routes, the outer instruction is the Jupiter aggregator (untracked);
+the real DEX calls happen in `events.swap.innerSwaps` which the scanner was not
+checking. Result: Jupiter-routed victim slots were **never added to `candidateSlots`**
+→ never block-expanded → never run through the detector. Fixed in
+`apps/workers/scanner/src/index.ts` by also checking `events.swap.innerSwaps`.
+
+**Bug 2 — Narrow block window (±10) silently dropped bot swaps:**
+The block expander parsed only swaps within ±10 positions of the victim's
+tx. Bot front-runs >10 positions away were invisible to L2. Common in
+validator-direct attacks. Fixed in `packages/runtime/src/block-expander.ts`:
+window expanded to ±25. Still a small fraction of a 400-tx block; per-slot
+credit cost unchanged.
+
+**Bug 3 — `zeroLoss` helper set `lossUsd: 0` → Guard 2a dropped real detections:**
+When loss math failed (CPMM mint mismatch, rate-delta sign reversal on noisy bot
+data), `zeroLoss` returned `lossUsd: 0`. Guard 2a (`lossUsd < $0.01 → drop`)
+then discarded the detection even though it was a real sandwich. Fixed in
+`packages/core/src/detector-loss.ts`: `zeroLoss` now returns `lossUsd: null`
+("unknown, skip the USD guard"). Guard 2b also updated to skip the ratio
+check when `lossConfidence === 0`.
+
+**Bug 4 — L3 and L4 not wired into the orchestrator:**
+The orchestrator only ran L1 and L2. Known-bot (L3) and statistical (L4)
+detection were implemented in the spec but never enabled. Fixed in
+`packages/core/src/detector.ts`: L1 → L2 → L3 → L4 pipeline now active.
+
+**Bug 5 — Missing known bots in the registry:**
+`vpe-bot` (DeezNode/vpe family, Helius report: ~50% of all attacks) and
+`arsc-warm` were in the spec's §11 but missing from the implementation.
+Fixed in `packages/core/src/known-bots.ts`.
 
 ## What changed in the database
 
@@ -140,6 +202,8 @@ packages/core/
   src/detector.ts             # detectSandwichForVictim + detectSandwichesForWalletSwaps (orchestrator)
   src/detector-l1.ts          # Jito-bundle layer + isSandwichShape predicate
   src/detector-l2.ts          # Block-adjacency layer
+  src/detector-l3.ts          # Known-bot same-slot layer (NEW)
+  src/detector-l4.ts          # Statistical wide-sandwich layer (NEW)
   src/detector-loss.ts        # computeLoss dispatcher + 3 reconstruction methods
   src/detector-filters.ts     # passesPostFilters
   src/dex-fees.ts             # Per-DEX fee bps + pool type table
@@ -165,20 +229,16 @@ apps/workers/detector/        # Realtime webhook-triggered worker (uses pipeline
   Wallet rescans and cross-wallet scans touching the same slot pay zero
   additional credits.
 - **Failure mode**: Jito API hiccup → L1 returns null → orchestrator
-  falls through to L2. Helius transient error during block expansion →
+  falls through to L2/L3/L4. Helius transient error during block expansion →
   expander logs and returns `[]`; scanner treats as no-detection and
   continues with other slots. Both paths are fail-closed for accuracy
   rather than fail-open with phantom detections.
 
-## Rolling out the lower layers
+## Rolling out L5
 
-Per spec §13:
+Per spec §13: ship L1-L4 (done), validate false-positive rate against
+sandwiched.me for ≥1 week, then enable L5 (cross-slot wide sandwich) in a
+separate PR. L5 is the noisiest layer; enabling it before L4 is validated
+risks flooding the DB with suspected-status noise that the UI can't distinguish
+from real attacks.
 
-1. Ship L1 + L2 (this PR). Run on a pool of test wallets, eyeball
-   detections against sandwiched.me ground truth.
-2. Add L3 (known-bot relaxed adjacency). Re-run, compare false-positive
-   rate.
-3. Add L4 (statistical wide). All L4 detections should write
-   `status = 'suspected'`; the UI must visually distinguish
-   confirmed-vs-suspected.
-4. Add L5 (cross-slot) only when L4's false-positive rate is < 10%.

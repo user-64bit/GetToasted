@@ -256,24 +256,46 @@ function reconstructIoFromAccountData(
     }
   }
 
-  // If we don't already have an SOL_MINT entry from wrapped-SOL changes, add
-  // one synthesized from native transfers (excluding Jito tips). Many DEXes
-  // route SOL legs as plain native transfers, so this is the difference
-  // between "we see the wallet's swap" and "we see only one side".
-  if (!byMint.has(SOL_MINT)) {
+  // Always incorporate native SOL transfers into the SOL_MINT balance delta.
+  //
+  // Previous behaviour: skip when byMint already has SOL_MINT (wSOL entry
+  // from tokenBalanceChanges). This was wrong for Meteora DAMM v2 and similar
+  // DEXes where the wallet's SOL input is split:
+  //   - A small wSOL tokenBalanceChange (e.g. -100,000 lamports — just the
+  //     unwrap residual on an ATA close)
+  //   - A large native SOL transfer to the pool (e.g. -2,074,080 lamports —
+  //     the actual swap value)
+  //
+  // The guard meant the reconstruction saw only the tiny wSOL delta as the
+  // swap input, producing a near-zero SOL input amount. Loss calculation then
+  // computed near-zero loss, and Guard 2b dropped the detection entirely.
+  //
+  // Fix: always compute native SOL delta and add it to whatever wSOL delta
+  // is already recorded. The combined figure is what the wallet actually
+  // spent/received in native SOL (including wSOL wrapping), which is the
+  // correct input for the pool key and loss math.
+  {
     let nativeDelta = 0n;
     for (const t of tx.nativeTransfers ?? []) {
       const amount = BigInt(Math.floor(t.amount));
       if (t.fromUserAccount === wallet) {
         // Exclude tip transfers — they're not part of the swap input.
         if (t.toUserAccount && tipAccounts.has(t.toUserAccount)) continue;
+        // Exclude ATA creation rent (Token and Token2022) to prevent it from
+        // massively inflating the apparent swap size of micro-transactions.
+        if (amount === 2_039_280n || amount === 2_074_080n) continue;
         nativeDelta -= amount;
       } else if (t.toUserAccount === wallet) {
         nativeDelta += amount;
       }
     }
     if (nativeDelta !== 0n) {
-      byMint.set(SOL_MINT, { delta: nativeDelta, decimals: SOL_DECIMALS });
+      const existing = byMint.get(SOL_MINT);
+      if (existing) {
+        existing.delta += nativeDelta;
+      } else {
+        byMint.set(SOL_MINT, { delta: nativeDelta, decimals: SOL_DECIMALS });
+      }
     }
   }
 

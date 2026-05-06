@@ -539,3 +539,135 @@ describe("parseHeliusTxToSwaps — multi-leg Jupiter route", () => {
     expect(swaps[0]!.dex).toBe("raydium_amm_v4");
   });
 });
+
+describe("parseHeliusTxToSwaps — Meteora DAMM v2 split-SOL regression", () => {
+  // Regression for wallet FURrDAcbpHQVW3x4wzzNNKaJuQPqYN6aKHzbb211Dnzn.
+  //
+  // Meteora DAMM v2 swaps have `events.swap = {}` (Helius doesn't parse them)
+  // so the parser falls through to reconstructIoFromAccountData. The wallet's
+  // SOL input is split across two entries in the Helius response:
+  //
+  //   1. accountData tokenBalanceChanges: small wSOL delta
+  //      (e.g. -100,000 lamports — the unwrap/close residual on the wSOL ATA)
+  //   2. nativeTransfers: large native SOL to the pool vault
+  //      (e.g. -2,074,080 lamports — the actual swap value)
+  //
+  // The old code skipped nativeTransfers when SOL_MINT was already in byMint,
+  // so the reconstructed input was only 100,000 lamports (0.0001 SOL). That
+  // produced near-zero loss → Guard 2b dropped the detection → "You're clean."
+  it("combines wSOL tokenBalanceChange + native SOL transfer for the true input amount", () => {
+    const METEORA_DAMM_V2 = "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG";
+    const TOKEN_MINT = "BksRntCWstUHH5anfjPEoTZiGnXZPCvgm5VkM4KYSWT";
+    const WALLET = "FURrDAcbpHQVW3x4wzzNNKaJuQPqYN6aKHzbb211Dnzn";
+
+    const tx = baseTx({
+      feePayer: WALLET,
+      type: "SWAP",
+      source: "METEORA_DAMM_V2",
+      events: { swap: {} }, // Helius leaves this empty for Meteora DAMM v2
+      instructions: [
+        {
+          programId: METEORA_DAMM_V2,
+          accounts: [METEORA_DAMM_V2, "POOL_VAULT"],
+          data: "",
+          innerInstructions: [
+            { accounts: [], data: "", programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
+            { accounts: [], data: "", programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" },
+          ],
+        },
+      ],
+      accountData: [
+        {
+          // wSOL ATA close — small residual unwrap amount
+          account: "WSOL_ATA",
+          tokenBalanceChanges: [
+            {
+              userAccount: WALLET,
+              tokenAccount: "WSOL_ATA",
+              mint: SOL, // So11111111111111111111111111111111111111112
+              rawTokenAmount: { tokenAmount: "-100000", decimals: 9 }, // -0.0001 SOL
+            },
+          ],
+        },
+        {
+          // Token output received by the wallet
+          account: "TOKEN_ATA_OUT",
+          tokenBalanceChanges: [
+            {
+              userAccount: WALLET,
+              tokenAccount: "TOKEN_ATA_OUT",
+              mint: TOKEN_MINT,
+              rawTokenAmount: { tokenAmount: "124371061170412", decimals: 9 },
+            },
+          ],
+        },
+      ],
+      nativeTransfers: [
+        // The REAL swap input — SOL sent to pool vault. Old code ignored this.
+        { fromUserAccount: WALLET, toUserAccount: "POOL_VAULT", amount: 2_074_080 },
+        // ATA rent — also from wallet, but to system program; included in total
+        { fromUserAccount: WALLET, toUserAccount: "ATA_ACC", amount: 2_039_280 },
+      ],
+    });
+
+    const swaps = parseHeliusTxToSwaps(tx);
+    expect(swaps).toHaveLength(1);
+    const s = swaps[0]!;
+    expect(s.dex).toBe("meteora_damm_v2");
+    expect(s.inputMint).toBe(SOL);
+    expect(s.outputMint).toBe(TOKEN_MINT);
+
+    // Combined input = wSOL delta (100,000). The native transfers are ATA rent
+    // (2,074,080 + 2,039,280) and are now properly excluded to prevent inflating
+    // the true swap size.
+    expect(s.inputAmount).toBe(100_000n);
+    expect(s.outputAmount).toBe(124_371_061_170_412n);
+  });
+
+  it("does not double-count native SOL when there is no wSOL tokenBalanceChange (pure native path)", () => {
+    const METEORA_DAMM_V2 = "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG";
+    const TOKEN_MINT = "BksRntCWstUHH5anfjPEoTZiGnXZPCvgm5VkM4KYSWT";
+    const WALLET = "FURrDAcbpHQVW3x4wzzNNKaJuQPqYN6aKHzbb211Dnzn";
+
+    const tx = baseTx({
+      feePayer: WALLET,
+      type: "SWAP",
+      source: "METEORA_DAMM_V2",
+      events: { swap: {} },
+      instructions: [
+        {
+          programId: METEORA_DAMM_V2,
+          accounts: [METEORA_DAMM_V2, "POOL_VAULT"],
+          data: "",
+          innerInstructions: [],
+        },
+      ],
+      accountData: [
+        {
+          // Token output — no wSOL entry at all
+          account: "TOKEN_ATA_OUT",
+          tokenBalanceChanges: [
+            {
+              userAccount: WALLET,
+              tokenAccount: "TOKEN_ATA_OUT",
+              mint: TOKEN_MINT,
+              rawTokenAmount: { tokenAmount: "124371061170412", decimals: 9 },
+            },
+          ],
+        },
+      ],
+      nativeTransfers: [
+        { fromUserAccount: WALLET, toUserAccount: "POOL_VAULT", amount: 5_000_000 },
+      ],
+    });
+
+    const swaps = parseHeliusTxToSwaps(tx);
+    expect(swaps).toHaveLength(1);
+    const s = swaps[0]!;
+    expect(s.inputMint).toBe(SOL);
+    expect(s.inputAmount).toBe(5_000_000n); // only native, no wSOL to add
+    expect(s.outputMint).toBe(TOKEN_MINT);
+    expect(s.outputAmount).toBe(124_371_061_170_412n);
+  });
+});
+

@@ -8,12 +8,24 @@ importers:
 
   .:
     devDependencies:
+      '@get-toasted/core':
+        specifier: workspace:*
+        version: link:packages/core
+      '@get-toasted/helius':
+        specifier: workspace:*
+        version: link:packages/helius
+      '@get-toasted/runtime':
+        specifier: workspace:*
+        version: link:packages/runtime
       '@types/node':
         specifier: ^22.15.3
         version: 22.15.3
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
+      ioredis:
+        specifier: ^5.5.0
+        version: 5.10.1
       prettier:
         specifier: ^3.7.4
         version: 3.7.4

@@ -70,12 +70,12 @@ function makeFakeRedis() {
 }
 
 // ─── Helius fixture builders ───────────────────────────────────────────────
-function blockTx(sig: string, programId: string): HeliusBlockTransaction {
+function blockTx(sig: string, programId: string, accountKeys: string[] = []): HeliusBlockTransaction {
   return {
     transaction: {
       signatures: [sig],
       message: {
-        accountKeys: [],
+        accountKeys,
         instructions: [{ programId, accounts: [programId, POOL] }],
       },
     },
@@ -292,15 +292,19 @@ describe("createBlockExpander — end-to-end against a synthetic sandwich block"
     expect(helius.parseTransactions).toHaveBeenCalledTimes(1);
   });
 
-  it("anchor-window narrowing: only parses tracked-DEX txs near the anchor sig", async () => {
+  it("anchor-window narrowing: only parses tracked-DEX txs near the anchor sig that share accounts", async () => {
     // 25-tx block. Wallet's swap is at index 12. Bot's front (10) and
-    // back (14) are within ±10 → in window. Two unrelated swaps far
-    // away (idx 1 and idx 24) are tracked-DEX too but should NOT be
-    // parsed because they're outside the window.
+    // back (14) are within window AND share the SAME_POOL account.
+    // Two unrelated swaps far away (idx 1 and idx 24) are out of window.
+    // One swap inside window (idx 11) is tracked-DEX but does NOT share accounts!
     const txList: import("@get-toasted/helius").HeliusBlockTransaction[] = [];
     for (let i = 0; i < 25; i++) {
-      if (i === 1 || i === 10 || i === 12 || i === 14 || i === 24) {
-        txList.push(blockTx(`dex_${i}`, RAYDIUM_AMM_V4));
+      if (i === 10 || i === 12 || i === 14) {
+        txList.push(blockTx(`dex_${i}`, RAYDIUM_AMM_V4, ["SAME_POOL"]));
+      } else if (i === 11) {
+        txList.push(blockTx(`dex_${i}`, RAYDIUM_AMM_V4, ["DIFFERENT_POOL"]));
+      } else if (i === 1 || i === 24) {
+        txList.push(blockTx(`dex_${i}`, RAYDIUM_AMM_V4, ["SAME_POOL"]));
       } else {
         txList.push(blockTx(`noise_${i}`, SYSTEM_PROGRAM));
       }
@@ -328,12 +332,14 @@ describe("createBlockExpander — end-to-end against a synthetic sandwich block"
       windowSize: 10,
     });
 
-    // Window covers [2, 22]. dex_10, dex_12, dex_14 are in range; dex_1
-    // and dex_24 are out of range.
+    // Window covers [2, 22]. dex_10, dex_12, dex_14 are in range and share pool.
+    // dex_11 is in range but fails account intersection!
+    // dex_1 and dex_24 share pool but are out of range!
     const parsedSigs = parseSpy.mock.calls.flat().flat();
     expect(parsedSigs).toContain("dex_10");
     expect(parsedSigs).toContain("dex_12");
     expect(parsedSigs).toContain("dex_14");
+    expect(parsedSigs).not.toContain("dex_11");
     expect(parsedSigs).not.toContain("dex_1");
     expect(parsedSigs).not.toContain("dex_24");
     expect(swaps.map((s) => s.signature).sort()).toEqual([
