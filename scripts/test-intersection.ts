@@ -1,5 +1,4 @@
 import "dotenv/config";
-import fetch from "node-fetch";
 import { TRACKED_DEX_PROGRAM_ID_SET } from "@get-toasted/core";
 
 async function main() {
@@ -26,11 +25,11 @@ async function main() {
       ],
     }),
   });
-  const block = (await res.json()).result;
-  const txs = block.transactions || [];
+  const block = (await res.json() as any).result;
+  const txs: any[] = block.transactions || [];
 
   // Find anchor tx
-  const anchorTx = txs.find(t => t.transaction.signatures[0] === ANCHOR_SIG);
+  const anchorTx = txs.find((t: any) => t.transaction.signatures[0] === ANCHOR_SIG);
   if (!anchorTx) throw new Error("Anchor not found");
 
   // Get anchor accounts
@@ -62,16 +61,16 @@ async function main() {
   
   let allDexCount = 0;
   let intersectedCount = 0;
-  const intersectedSigs = [];
+  const intersectedSigs: string[] = [];
 
   for (const tx of txs) {
     const meta = tx.meta || {};
     const msg = tx.transaction.message || {};
-    const outer_pids = msg.instructions?.map(ix => ix.programId) || [];
-    const inner_pids = meta.innerInstructions?.flatMap(grp => grp.instructions.map(inn => inn.programId)) || [];
+    const outer_pids = msg.instructions?.map((ix: any) => ix.programId) || [];
+    const inner_pids = meta.innerInstructions?.flatMap((grp: any) => grp.instructions.map((inn: any) => inn.programId)) || [];
     
-    const touchesDex = outer_pids.some(p => TRACKED_DEX_PROGRAM_ID_SET.has(p)) || 
-                       inner_pids.some(p => TRACKED_DEX_PROGRAM_ID_SET.has(p));
+    const touchesDex = outer_pids.some((p: string) => TRACKED_DEX_PROGRAM_ID_SET.has(p)) || 
+                       inner_pids.some((p: string) => TRACKED_DEX_PROGRAM_ID_SET.has(p));
                        
     if (touchesDex) {
       allDexCount++;
