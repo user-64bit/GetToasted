@@ -6,7 +6,8 @@ import { Queue } from "bullmq";
 import { z } from "zod";
 import { redisKeys } from "@get-toasted/runtime";
 import { db, redis } from "../../lib/connections.js";
-import { authMiddleware } from "../../middleware/auth.js";
+// SIWS auth (`../../middleware/auth.ts`) intentionally not imported in
+// v1; re-add when the SIWS demo gate is enabled in v2.
 
 const scanQueue = new Queue("scan-historical", { connection: redis });
 
@@ -144,9 +145,12 @@ wallets.get(
   },
 );
 
+// NOTE: SIWS authMiddleware intentionally omitted for v1 demo. Per
+// SUBMISSION_NOTES.md "scope intentionally excluded", paste-wallet
+// is the demo flow and SIWS is deferred to v2. Re-add `authMiddleware`
+// to gate scans behind a signed-in session.
 wallets.post(
   "/:address/scan",
-  authMiddleware,
   zValidator("param", AddressParam),
   async (c) => {
     const { address } = c.req.valid("param");

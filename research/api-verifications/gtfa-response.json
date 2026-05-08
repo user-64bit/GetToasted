@@ -1,0 +1,37 @@
+{
+  "ok": false,
+  "checkedAt": "2026-05-06T11:42:55.544Z",
+  "request": {
+    "method": "getTransactionsForAddress",
+    "targetSignature": "3k35bPRTDZssneWhpbEptK27JjXVGvsv9ZWWnCJvn8PNA5pgKSNpMACPnmh3ogPbgpHKuFDo9ZKzLipM9kXianVY",
+    "address": "3cxZai94fxXF5sQdLUhwUiVQioAxkdrQcFTJkwrsKNS8",
+    "params": {
+      "transactionDetails": "full",
+      "limit": 10,
+      "sortOrder": "asc",
+      "encoding": "json",
+      "maxSupportedTransactionVersion": 0,
+      "filters": {
+        "slot": {
+          "gte": 307871111,
+          "lte": 307871111
+        },
+        "status": "succeeded"
+      }
+    },
+    "rpcUrl": "https://mainnet.helius-rpc.com/?api-key=<redacted>"
+  },
+  "response": {
+    "jsonrpc": "2.0",
+    "error": {
+      "code": -32403,
+      "message": "This feature is only available for paid plans. Please upgrade if you would like to gain access."
+    }
+  },
+  "verification": {
+    "foundTargetSignature": false,
+    "transactionIndex": null,
+    "hasPopulatedTransactionIndex": false,
+    "failureReason": "This feature is only available for paid plans. Please upgrade if you would like to gain access."
+  }
+}

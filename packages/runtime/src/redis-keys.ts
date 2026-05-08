@@ -15,6 +15,7 @@ export const redisKeys = {
   decimals: (mint: string) => `mint:dec:${mint}`,
   webhookId: () => `helius:webhookId`,
   statsCache: () => `stats:global`,
+  jitoBundleByTx: (signature: string) => `jito:bundle:tx:${signature}`,
 } as const;
 
 export const SCAN_LOCK_TTL_SECONDS = 600;
@@ -32,3 +33,8 @@ export const BLOCK_SWAPS_MISSING_TTL_SECONDS = 6 * 60 * 60;
 // In-flight lock so concurrent scanners don't both hammer getBlock for the
 // same slot. TTL is short — if the holder dies we want to retry quickly.
 export const BLOCK_SWAPS_LOCK_TTL_SECONDS = 90;
+// Jito bundle membership is immutable once a bundle has landed, so positive
+// hits cache for a long time. Negative cache is shorter — Jito's recent
+// endpoint can lag behind block finalization by minutes.
+export const JITO_BUNDLE_TTL_SECONDS = 7 * 24 * 60 * 60;
+export const JITO_BUNDLE_MISSING_TTL_SECONDS = 60 * 60;

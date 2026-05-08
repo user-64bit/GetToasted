@@ -118,8 +118,27 @@ export function reconstructCpmmLoss(
   // bounded by 1 base unit (sub-lamport for SOL, sub-cent for USDC).
   const counterfactualOutput = yBefore - newY;
 
-  let lossInOutputToken = counterfactualOutput - victim.outputAmount;
-  if (lossInOutputToken < 0n) lossInOutputToken = 0n;
+  // Sanity guard: counterfactual >= actual. Without the front-run, the
+  // victim should get *at least* what they actually got (the front-run
+  // can only worsen the price for the same-direction victim). If we
+  // compute the opposite, the inferred reserves are wrong — typically
+  // because `inferPoolReservesFromTx` picked a non-pool token account
+  // when multiple non-signer balances of the same mint exist in the tx.
+  // Bail with lossConfidence: 0 so the dispatcher falls through to
+  // backrun-profit-proxy. Detection is still emitted; only the loss
+  // method changes.
+  if (counterfactualOutput < victim.outputAmount) {
+    return {
+      method: "backrun-profit-proxy",
+      actualOutput: victim.outputAmount,
+      counterfactualOutput: victim.outputAmount,
+      lossInOutputToken: 0n,
+      lossUsd: null,
+      lossConfidence: 0,
+    };
+  }
+
+  const lossInOutputToken = counterfactualOutput - victim.outputAmount;
 
   return {
     method: "cpmm-reconstruction",

@@ -55,6 +55,10 @@ export const serverEnv = createEnv({
     // activity was fully covered and only deeper history was truncated.
     MAX_SCAN_SIGNATURES: z.coerce.number().int().positive().default(1000),
     MAX_SCAN_SLOTS: z.coerce.number().int().positive().default(200),
+    // Wall-clock budget per scan-historical job. Default 60s covers a
+    // typical wallet's recent activity comfortably. Bump for backfill
+    // smoke tests against wallets with older sandwiches in their history.
+    MAX_SCAN_DURATION_MS: z.coerce.number().int().positive().default(60_000),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

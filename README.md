@@ -6,6 +6,9 @@ Get Toasted is a SaaS that ingests a wallet's transaction history (via Helius), 
 
 - **Live**: https://gettoasted.fun
 - **Stage**: Hackathon MVP (5-week build, solo dev)
+- **Submission notes**: see [`SUBMISSION.md`](./SUBMISSION.md) for the validation methodology, 30/30 match rate, scope decisions, and demo flow.
+- **Detector internals**: see [`DETECTOR.md`](./DETECTOR.md).
+- **Open work**: see [`BACKLOG.md`](./BACKLOG.md).
 
 ---
 

@@ -85,11 +85,10 @@ type ScanJobData = {
 // complete with whatever was found so far. No requeue. Keeps Helius
 // credit usage bounded.
 //
-// Was 30s; bumped to 60s after observing budget exhaustion mid-scan
-// for wallets with 30+ candidate slots. With the anchor-window
-// expansion + 5-way slot concurrency, 60s now covers ~150-300 slots
-// comfortably — well past the typical wallet's recent activity.
-const MAX_SCAN_DURATION_MS = 60_000;
+// Default 60s covers a typical wallet's recent activity (~150-300
+// slots with anchor-window expansion + 5-way concurrency). Override
+// via MAX_SCAN_DURATION_MS env var for backfill scans.
+const MAX_SCAN_DURATION_MS = serverEnv.MAX_SCAN_DURATION_MS;
 const BATCH_LIMIT = 100;
 const MAX_SCAN_SIGNATURES = serverEnv.MAX_SCAN_SIGNATURES;
 const MAX_SCAN_SLOTS = serverEnv.MAX_SCAN_SLOTS;

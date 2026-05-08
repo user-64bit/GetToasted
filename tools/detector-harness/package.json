@@ -1,0 +1,18 @@
+{
+  "name": "@get-toasted/detector-harness",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "harness": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@get-toasted/core": "workspace:*",
+    "@get-toasted/helius": "workspace:*",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.2"
+  }
+}

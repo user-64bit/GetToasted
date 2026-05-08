@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useMe } from "../../lib/api/auth";
+// useMe is no longer needed: SIWS gating was removed for the v1 demo
+// scan flow. Re-import when SIWS is re-enabled in v2.
 import {
   useStartScan,
   useWalletSandwiches,
@@ -109,9 +110,10 @@ export function DashboardClient({ wallet }: DashboardClientProps) {
 }
 
 function ScanFailed({ wallet, reason }: { wallet: string; reason: string }) {
-  const me = useMe();
   const startScan = useStartScan(wallet);
-  const canRetry = Boolean(me.data?.authenticated);
+  // v1 demo: scan is anonymous, so retry is always available.
+  const canRetry = true;
+  void wallet; // wallet kept on signature for future use
 
   // Surface upstream rate-limiting in plainer language so the user knows
   // it's not a bug in their wallet — the API hit a quota.
@@ -192,18 +194,27 @@ function ScanFailed({ wallet, reason }: { wallet: string; reason: string }) {
 }
 
 function NoScanYet({ wallet }: { wallet: string }) {
-  const me = useMe();
+  // v1 demo: POST /scan is unauthenticated (SIWS gate removed for the
+  // paste-wallet flow). Auto-trigger the scan on mount so the user
+  // who just submitted on the landing page sees the scanning view
+  // immediately rather than having to click a second button.
   const startScan = useStartScan(wallet);
+  const triggered = useRef(false);
 
-  const canScan = Boolean(me.data?.authenticated);
-  const isOwnWallet =
-    me.data?.authenticated && me.data.address === wallet;
+  useEffect(() => {
+    if (triggered.current) return;
+    if (startScan.isPending || startScan.isSuccess) return;
+    triggered.current = true;
+    startScan.mutate();
+  }, [startScan]);
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
       <div className="max-w-md w-full text-center">
         <p className="text-label">Wallet</p>
-        <h1 className="text-h1 mt-3">No scan yet.</h1>
+        <h1 className="text-h1 mt-3">
+          {startScan.isError ? "Scan failed to start." : "Queuing scan…"}
+        </h1>
         <p
           className="mt-3"
           style={{
@@ -213,17 +224,18 @@ function NoScanYet({ wallet }: { wallet: string }) {
             color: "var(--text-secondary)",
           }}
         >
-          {canScan
-            ? isOwnWallet
-              ? "Kick off a forensic scan of your wallet to find every sandwich attack."
-              : "Kick off a forensic scan of this wallet."
-            : "Sign in with any Solana wallet on the home page to start a scan."}
+          {startScan.isError
+            ? "We couldn't reach the scan service. Try again in a moment."
+            : "Spinning up a forensic scan of this wallet."}
         </p>
 
-        {canScan && (
+        {startScan.isError && (
           <button
             type="button"
-            onClick={() => startScan.mutate()}
+            onClick={() => {
+              triggered.current = true;
+              startScan.mutate();
+            }}
             disabled={startScan.isPending}
             className="inline-flex items-center mt-8 gt-btn"
             style={{
@@ -238,7 +250,7 @@ function NoScanYet({ wallet }: { wallet: string }) {
               gap: 8,
             }}
           >
-            {startScan.isPending ? "Queuing…" : "Start scan →"}
+            {startScan.isPending ? "Queuing…" : "Retry scan →"}
           </button>
         )}
 

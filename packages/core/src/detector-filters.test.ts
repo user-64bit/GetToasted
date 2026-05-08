@@ -36,6 +36,7 @@ function mkDetection(
     lossUsd?: number | null;
     lossInOutputToken?: bigint;
     victimOutputAmount?: bigint;
+    layer?: SandwichDetection["layer"];
   } = {},
 ): SandwichDetection {
   const victim = mkSwap({
@@ -56,7 +57,7 @@ function mkDetection(
     backRun: mkSwap({ signer: overrides.attacker ?? "ATTACKER", signature: "back" }),
     attacker: overrides.attacker ?? "ATTACKER",
     pool: "POOL1",
-    layer: "L2",
+    layer: overrides.layer ?? "L2",
     confidence: 0.95,
     status: "confirmed",
     jitoBundled: false,
@@ -93,16 +94,36 @@ describe("passesPostFilters", () => {
     ).toBe(true);
   });
 
-  it("rejects when relative loss < 0.1% (statistical noise)", () => {
+  it("rejects when relative loss < 0.1% AND detection is L4 (statistical noise)", () => {
     expect(
       passesPostFilters(
         mkDetection({
+          layer: "L4",
           lossUsd: null,
           lossInOutputToken: 1_000n,
           victimOutputAmount: 5_000_000n, // 0.02% — under threshold
         }),
       ),
     ).toBe(false);
+  });
+
+  it("admits when relative loss < 0.1% but detection is L1/L2/L3 (mechanically confirmed)", () => {
+    // Guard 2b is a noise filter for the statistical L4 layer only.
+    // L1 (Jito-confirmed), L2 (block-adjacent), and L3 (known-bot) are
+    // mechanical signals — a low-extraction sandwich on a big victim
+    // trade is still a real sandwich and should not be silently dropped.
+    for (const layer of ["L1", "L2", "L3"] as const) {
+      expect(
+        passesPostFilters(
+          mkDetection({
+            layer,
+            lossUsd: null,
+            lossInOutputToken: 1_000n,
+            victimOutputAmount: 5_000_000n, // 0.02% — would trip Guard 2b on L4
+          }),
+        ),
+      ).toBe(true);
+    }
   });
 
   it("rejects when victim output is zero (degenerate case — no relative loss meaningful)", () => {

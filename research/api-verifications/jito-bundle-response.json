@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "checkedAt": "2026-05-06T11:43:16.343Z",
+  "request": {
+    "endpoint": "https://bundles.jito.wtf/api/v1/bundles/transaction/{signature}",
+    "signature": "3k35bPRTDZssneWhpbEptK27JjXVGvsv9ZWWnCJvn8PNA5pgKSNpMACPnmh3ogPbgpHKuFDo9ZKzLipM9kXianVY",
+    "expectedBundleId": "17232d2f4dd1164648bd70f31be26dbfbf9561a899dfd031fa568cf31f7435fd"
+  },
+  "response": [
+    {
+      "bundle_id": "17232d2f4dd1164648bd70f31be26dbfbf9561a899dfd031fa568cf31f7435fd"
+    }
+  ],
+  "verification": {
+    "returnedExpectedBundleId": true,
+    "bundleIds": [
+      "17232d2f4dd1164648bd70f31be26dbfbf9561a899dfd031fa568cf31f7435fd"
+    ]
+  }
+}

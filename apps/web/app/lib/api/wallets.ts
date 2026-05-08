@@ -55,14 +55,26 @@ export function useWalletSummary(address: string | undefined, options?: SummaryO
   });
 }
 
+type SandwichesOpts = Omit<
+  UseQueryOptions<
+    SandwichesPage,
+    Error,
+    SandwichesPage,
+    ReturnType<typeof walletKeys.sandwiches>
+  >,
+  "queryKey" | "queryFn"
+>;
+
 export function useWalletSandwiches(
   address: string | undefined,
   q: SandwichesQuery = {},
+  options?: SandwichesOpts,
 ) {
   return useQuery({
     queryKey: walletKeys.sandwiches(address ?? "", q),
     queryFn: () => fetchSandwiches(address!, q),
     enabled: Boolean(address),
+    ...options,
   });
 }
 

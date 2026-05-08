@@ -30,24 +30,22 @@ Every wallet swap is treated as a *victim candidate*. The pipeline:
 
 | Layer | Signal | Confidence | Status | Detects |
 |---|---|---|---|---|
-| L1 | *(disabled — see below)* Jito bundle membership: front + victim + back co-bundled | 1.00 | confirmed | Tight bundled sandwiches (when enabled) |
+| L1 | Jito bundle membership: front + victim + back co-bundled, sandwich shape verified | 1.00 | confirmed | Tight bundled sandwiches |
 | L2 | Nearest same-pool neighbor: front + victim + back form an A→B→A shape with same f+b signer, back sells ≥95% of front output | 0.95 | confirmed | All tight sandwiches (bundled + validator-direct) |
 | L3 | Same-slot, known-bot signer (KNOWN_SANDWICH_BOTS), A→B→A, back sells ≥90% | 0.85 | confirmed | Bot-attributed sandwiches with non-adjacent legs |
 | L4 | Same-slot statistical match: any signer, same pool, 5 false-positive guards | 0.65 | suspected | Wide / blind sandwiches by unknown bots |
 | L5 | *(not enabled)* Cross-slot, known-bot, multi-pool route | 0.55 | suspected | Jupiter route victims across adjacent slots |
 
-**L1 status (Jito):** Jito does not publish a public REST endpoint for
-`signature → bundle` reverse lookup. Their docs only expose
-`getBundleStatuses` (requires the bundle id, which we don't have) and a
-5-minute in-flight window. Until a paid indexer ships
-(Helius MEV API, sandwiched.me, Ghostlogs, or a Jito Block Engine
-subscription), L1 is a no-op stub that always returns null. The
-orchestrator falls through to L2; tight bundled sandwiches are still
-detected (Jito bundles land contiguously, so L2's nearest-neighbor
-rule catches them), and the bundled-vs-direct distinction is
-approximated by tip-transfer presence on the front/back swap (parser
-already extracts `jitoTipLamports` from native transfers to known tip
-accounts).
+**L1 status (Jito):** Re-enabled 2026-05-07. The earlier note in this
+file claimed Jito had no public reverse-lookup endpoint. That was wrong:
+`https://bundles.jito.wtf/api/v1/bundles/transaction/{signature}`
+returns the bundle id for any landed signature, and
+`/api/v1/bundles/bundle/{bundleId}` returns the full signature list and
+landed tip. Verification artifact at
+`research/api-verifications/jito-bundle-response.json`. The runtime
+client (`packages/runtime/src/jito-bundle.ts`) chains both endpoints
+with Redis cache (7d on hit, 1h on miss). Without Redis, use
+`createNullJitoBundleClient` — the orchestrator falls through to L2.
 
 **L2 — nearest-neighbor adjacency, not strict.** The original spec
 required `victim.txIndex ± 1` against the absolute block index. That
@@ -175,6 +173,18 @@ detection were implemented in the spec but never enabled. Fixed in
 `arsc-warm` were in the spec's §11 but missing from the implementation.
 Fixed in `packages/core/src/known-bots.ts`.
 
+**Bug 6 — Guard 2b silently dropped Jito-confirmed sandwiches with low extraction
+(2026-05-08):** `passesPostFilters` Guard 2b dropped any detection where
+`lossInOutputToken / victim.outputAmount < 0.1%`. This is a noise filter
+intended for the statistical L4 layer, but it was being applied to every
+layer including L1 (Jito-bundle ground truth) and L2 (block-adjacent
+mechanically-confirmed). On a sample of 10 mined Jito-bundle-confirmed
+sandwiches, this caused 1 false negative — a real B91 sandwich that
+extracted only ~0.06% from a large memecoin trade. Fixed in
+`packages/core/src/detector-filters.ts` by gating Guard 2b on
+`detection.layer === "L4"`. Match rate after fix: **10/10** on
+mined-bundle-confirmed sandwiches.
+
 ## What changed in the database
 
 Migration `0003_layered_detector.sql` adds three new columns to
@@ -241,4 +251,54 @@ sandwiched.me for ≥1 week, then enable L5 (cross-slot wide sandwich) in a
 separate PR. L5 is the noisiest layer; enabling it before L4 is validated
 risks flooding the DB with suspected-status noise that the UI can't distinguish
 from real attacks.
+
+## Validation strategy
+
+Sandwiched.me **does not have a per-victim-wallet route**. Their site is a
+SPA with aggregate stats, a sandwich stream, and a top-attackers
+leaderboard — wallet-level lookup was never a feature. Don't waste time
+trying to scrape it. Their JSON API (`nextgen.mev-hub.snowgenesis.com`)
+is Cloudflare-protected and not reachable from server environments.
+
+**Primary ground truth: Jito bundle membership.**
+`tools/detector-harness` exposes `pnpm harness validate-wallet <addr>`
+which:
+
+1. Pulls the wallet's recent signatures (gSFA).
+2. For each unique slot, expands the block via the production
+   block-expander pipeline (`getBlock` → filter to tracked-DEX txs →
+   `parseTransactions` → `parseHeliusTxToSwaps`).
+3. Runs the production detector (`detectSandwichesForWalletSwaps`).
+4. For each wallet swap, queries Jito's
+   `bundles.jito.wtf/api/v1/bundles/transaction/{sig}` +
+   `bundles/bundle/{id}` and applies `isSandwichShape` against the
+   bundle's neighbouring sigs. Any match is mechanically-verifiable
+   ground truth, independent of the detector.
+5. Computes recall (TP / (TP + FN)) against that ground truth.
+6. Optionally merges in `research/ground-truth/{wallet}.json` if the
+   operator has hand-curated additional victims.
+
+**Wide / non-bundled sandwiches: manual spot-check.** L4 fires
+statistically without bundle evidence. There is no automated ground
+truth for these. The protocol is: `validate-wallet` dumps the L4 hits
+with slot / attacker / victim / pool, and the operator spot-checks
+them by hand against Solscan / Solana Explorer. This is fine for v1;
+automated validation here would require a paid sandwich-tracking API
+that we don't have access to.
+
+**The 3 reviewer-supplied wallets** (`2Grfv182…`, `GbrTNGx1…`,
+`J9UUgwbf…`) returned zero bundle-confirmed detections in their last
+~200 signatures on 2026-05-08. Their recent activity is on
+**Phoenix Eternal** (`EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih`),
+identified by the `Phoenix Eternal 🐦‍🔥` log-line, deployed by an
+Ellipsis-Labs-linked Squads multisig at slot 417768438.
+
+**Phoenix Eternal is intentionally untracked in v1.** Reason: it is a
+spline-based perpetuals AMM, not a spot AMM. Loss math differs (funding-
+rate / oracle-price impact rather than constant-product slippage), and
+the existing `cpmm-reconstruction` / `backrun-profit-proxy` methods would
+produce wrong USD numbers on perp trades. A speculative `TRACKED_DEX_PROGRAM_IDS`
+add would also route legitimate same-block opens-then-closes through
+the sandwich-shape predicate and produce false positives. v2 plan
+captured in `BACKLOG.md` under "Phoenix Eternal coverage".
 

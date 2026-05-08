@@ -36,12 +36,25 @@ export function passesPostFilters(detection: SandwichDetection): boolean {
   // is statistical noise from rounding, fees on the back-run, or
   // arbitrage residual. Real sandwiches typically extract 0.5-5%.
   //
+  // **Only applied to L4** (statistical / unknown-bot wide sandwiches).
+  // L1 (Jito-bundle confirmed), L2 (block-adjacent same-pool same-signer),
+  // and L3 (known-bot same-slot) are all mechanically-confirmed signals
+  // — applying a relative-loss threshold to them silently drops real
+  // detections of low-extraction sandwiches (a bundled sandwich on a
+  // big-trade memecoin can extract <0.1% and still be a real attack).
+  // Guard 2b's purpose is filtering statistical noise, which only exists
+  // at L4.
+  //
   // Skip when lossConfidence === 0 — that signals the loss math fell back
   // to zero due to a data quality issue (CPMM mint mismatch, no reserves),
   // NOT because the sandwich was truly negligible. Applying the ratio guard
   // here would silently drop real detections where we simply couldn't
   // compute a number. Guard 2a will pass because lossUsd is null in that case.
-  if (detection.victim.outputAmount > 0n && detection.loss.lossConfidence > 0) {
+  if (
+    detection.layer === "L4" &&
+    detection.victim.outputAmount > 0n &&
+    detection.loss.lossConfidence > 0
+  ) {
     // Compute lossPct as a ratio of bigints, then convert. Doing this in
     // pure float (Number(loss) / Number(out)) loses precision on large
     // memecoin amounts (>2^53 base units).

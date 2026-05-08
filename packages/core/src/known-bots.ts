@@ -48,12 +48,15 @@ const ENTRIES: KnownBot[] = [
     notes: "Known sandwich program — fronts identified victim swaps",
   },
   {
-    address: "vpeNALD85GyYAcK4ms5kKqfJrJxVQuCwf24gWjNoax38b",
+    // 43-char program id (Helius MEV report). The previous 45-char address
+    // (vpeNALD85GyYAcK4ms5kKqfJrJxVQuCwf24gWjNoax38b) was malformed and
+    // failed getSignaturesForAddress with "invalid pubkey size".
+    address: "vpeNALD89BZ4KxNUFjdLmFXBCwtyqBDQ85ouNoax38b",
     name: "vpe-bot",
     confidence: 1.0,
-    isProgram: false,
+    isProgram: true,
     source: "helius_report",
-    notes: "DeezNode/vpe family — Helius MEV report flagged ~50% of all attacks",
+    notes: "DeezNode/vpe sandwich program — Helius MEV report flagged ~50% of all attacks",
   },
 ];
 

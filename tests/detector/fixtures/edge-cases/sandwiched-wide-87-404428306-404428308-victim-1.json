@@ -1,0 +1,103 @@
+{
+  "name": "sandwiched-wide-87-404428306-404428308-victim-1",
+  "kind": "edge-case",
+  "source": "sandwiched.me wide sandwich detail page and raw Helius getBlock replay",
+  "reason": "published wide sandwich spanning multiple slots; no Jito bundle evidence, Pump.fun-style mint, and confidence is deliberately capped as suspected",
+  "rawBlocksFile": "sandwiched-wide-87-404428306-404428308-raw-blocks.json",
+  "bundle": null,
+  "evidence": {
+    "pageUrl": "https://sandwiched.me/wide_sandwiches/87f1830e-e5d8-4a3c-b9de-cb4f637aed94",
+    "uuid": "87f1830e-e5d8-4a3c-b9de-cb4f637aed94",
+    "reportedSlots": [
+      404428306,
+      404428307,
+      404428308
+    ],
+    "reportedVictims": 11,
+    "reportedProfitSol": 26.1434,
+    "reportedValidator": "Everstake",
+    "directApiNote": "Sandwiched JSON API was Cloudflare-protected during fixture capture; raw block replay verifies the kinetic signature.",
+    "detectionIndex": 1
+  },
+  "expected": {
+    "classifier": "statistical",
+    "confidenceRange": [
+      0.55,
+      0.79
+    ],
+    "status": "suspected",
+    "attacker": "D5PYsWWGF1unUt45hm91Pdr6m1kxekVRe8NrvCBtEUtY",
+    "frontRun": "663NienpS7EsS8XoaxjBp2LVtSKEPwJRJbNbGdkJjwPvHcdifEDk6D4kNvJYHpUSXtPDYshQHNfDDiXuYQroMoWe",
+    "victim": "4W8cnr2gdQDwDFk94kXCMbiRL7kegMXuMrSjSRap7TmnSRrc3eUMiwRcJHTHisoe8mjbgcyfbevpFdP57CY2Y5VJ",
+    "backRun": "3dA1yMTsTtx4xrmPaLWj5SA4cbM6dES9msSjf4W6cDuEUnBfTygmV8ankPPwqV4rycX9voVcZG7hKXPo7pnRn27W",
+    "approximateLossSol": 6.335969179,
+    "lossTolerancePct": 25
+  },
+  "detections": [
+    {
+      "classifier": "statistical",
+      "confidence": 0.68,
+      "status": "suspected",
+      "slot": 404428306,
+      "bundleId": null,
+      "attacker": "D5PYsWWGF1unUt45hm91Pdr6m1kxekVRe8NrvCBtEUtY",
+      "frontRun": {
+        "signature": "663NienpS7EsS8XoaxjBp2LVtSKEPwJRJbNbGdkJjwPvHcdifEDk6D4kNvJYHpUSXtPDYshQHNfDDiXuYQroMoWe",
+        "signer": "D5PYsWWGF1unUt45hm91Pdr6m1kxekVRe8NrvCBtEUtY",
+        "txIndex": 1421
+      },
+      "victim": {
+        "signature": "4W8cnr2gdQDwDFk94kXCMbiRL7kegMXuMrSjSRap7TmnSRrc3eUMiwRcJHTHisoe8mjbgcyfbevpFdP57CY2Y5VJ",
+        "signer": "47SAuyVMsTWDkqfvCT9PW6EFWTEqa3cFFoNfFPUQTGLq",
+        "txIndex": 1422
+      },
+      "backRun": {
+        "signature": "3dA1yMTsTtx4xrmPaLWj5SA4cbM6dES9msSjf4W6cDuEUnBfTygmV8ankPPwqV4rycX9voVcZG7hKXPo7pnRn27W",
+        "signer": "D5PYsWWGF1unUt45hm91Pdr6m1kxekVRe8NrvCBtEUtY",
+        "txIndex": 985
+      },
+      "pool": "pumpfun_bonding:4e1uncoXgDSfitWoGFmhMZewsVdVUqkucYHyHCC8pump",
+      "dex": "pumpfun_bonding",
+      "attackedMint": "4e1uncoXgDSfitWoGFmhMZewsVdVUqkucYHyHCC8pump",
+      "quoteMint": null,
+      "knownBotMatch": {
+        "matched": false,
+        "registryName": null,
+        "registryAddress": null
+      },
+      "frontTokenAmount": "27738298110192",
+      "victimTokenAmount": "32994743904367",
+      "backTokenAmount": "27738298110192",
+      "scoring": {
+        "rules": [
+          "cross-slot attacker token inventory round trip",
+          "front-run and back-run share the same signer",
+          "front-run and back-run have identical raw token-flow magnitude",
+          "victim signer differs from attacker signer",
+          "victim touches the same mint in the same direction as the front-run",
+          "front/back window is bounded to two slots"
+        ],
+        "penalties": [
+          "pure statistical cross-slot sandwich without bundle or validator evidence is capped below confirmed"
+        ]
+      },
+      "loss": {
+        "method": "backrun-proxy",
+        "confidence": 0.65,
+        "victimActualOutput": null,
+        "victimCounterfactualOutput": null,
+        "lossInOutputToken": null,
+        "outputTokenMint": "4e1uncoXgDSfitWoGFmhMZewsVdVUqkucYHyHCC8pump",
+        "outputTokenDecimals": 6,
+        "lossInProxyToken": {
+          "amount": "6335969179",
+          "mint": "So11111111111111111111111111111111111111112",
+          "usdPrice": 89.11990483156141
+        },
+        "lossUsd": 564.6609702481863,
+        "outputTokenPriceAtSlot": 0.0000015841218870812801,
+        "notes": "same-slot proxy: back-run lamport gain minus front-run lamport spend; no Jito tip observed"
+      }
+    }
+  ]
+}

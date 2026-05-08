@@ -11,6 +11,7 @@
     "lint": "turbo lint",
     "type-check": "turbo type-check",
     "test": "turbo test",
+    "harness": "tsx tools/detector-harness/src/cli.ts",
     "db:generate": "turbo db:generate --filter=@get-toasted/db",
     "db:migrate": "turbo db:migrate --filter=@get-toasted/db",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\""

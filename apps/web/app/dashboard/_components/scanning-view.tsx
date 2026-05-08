@@ -17,7 +17,14 @@ function shortAddress(addr: string): string {
 }
 
 export function ScanningView({ wallet, summary }: ScanningViewProps) {
-  const sandwichesQ = useWalletSandwiches(wallet, { limit: 25 });
+  // Refetch every 2s while scanning so detections appear live as the
+  // worker writes them to detected_sandwiches. Stops once the parent
+  // dashboard-client transitions us out (scanStatus !== scanning|pending).
+  const sandwichesQ = useWalletSandwiches(
+    wallet,
+    { limit: 25 },
+    { refetchInterval: 2000 },
+  );
 
   const progress = summary.scanProgress;
   const progressPct = progress?.progressPct ?? 0;

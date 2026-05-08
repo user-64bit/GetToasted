@@ -1,4 +1,4 @@
-import { computeLossUsd, type SandwichDetection } from "@get-toasted/core";
+import { computeLossUsd, SOL_MINT, type SandwichDetection } from "@get-toasted/core";
 import type { Sandwiches } from "@get-toasted/db";
 import type { BlockTimeResolver } from "./block-time.js";
 import type { DecimalsResolver } from "./decimals-cache.js";
@@ -60,7 +60,7 @@ export async function enrichSandwichDetection(
     (await deps.decimals.getDecimals(victim.outputMint)) ||
     0;
   const priceUsd = await deps.prices.getTokenPriceUsd(victim.outputMint, blockTime);
-  const lossUsd = computeLossUsd(loss.lossInOutputToken, outputDecimals, priceUsd);
+  let lossUsd = computeLossUsd(loss.lossInOutputToken, outputDecimals, priceUsd);
 
   // Attacker profit is what the bot extracted — back.outputAmount minus
   // front.inputAmount, clamped at zero. Stored alongside loss so dashboards
@@ -68,6 +68,27 @@ export async function enrichSandwichDetection(
   // identical when the bot pays a tip or has a partial back-run).
   const tipLamports = detection.jitoTipLamports;
   const attackerProfitRaw = computeAttackerProfit(detection, tipLamports);
+
+  // SOL-denominated fallback for unpriced output tokens. When the
+  // victim's output token is a long-tail memecoin (no Jupiter oracle),
+  // `lossUsd` ends up null even though real value was extracted. If the
+  // pair's *input* side is SOL, the bot's realized profit IS in
+  // SOL/lamports — and SOL has a Jupiter price. Use bot-profit × SOL price
+  // as the proxy USD figure so the dashboard surfaces a real number
+  // instead of showing $0 on a confirmed sandwich. This matches the
+  // backrun-profit-proxy semantics already documented in
+  // detector-loss.ts:135-143 ("the bot's profit comes from the same
+  // slippage the victim ate").
+  if (
+    lossUsd === null &&
+    frontRun.inputMint === SOL_MINT &&
+    attackerProfitRaw > 0n
+  ) {
+    const solPriceUsd = await deps.prices.getTokenPriceUsd(SOL_MINT, blockTime);
+    if (solPriceUsd !== null) {
+      lossUsd = (Number(attackerProfitRaw) / 1_000_000_000) * solPriceUsd;
+    }
+  }
 
   return {
     slot: victim.slot,

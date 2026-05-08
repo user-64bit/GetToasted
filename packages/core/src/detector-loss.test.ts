@@ -80,21 +80,30 @@ describe("reconstructCpmmLoss", () => {
     expect(loss.lossInOutputToken).toBe(0n);
   });
 
-  it("clamps to zero loss when victim happened to get a better-than-counterfactual rate", () => {
+  it("falls through (lossConfidence=0) when victim's actual output exceeds the CPMM counterfactual", () => {
+    // Real-world cause: `inferPoolReservesFromTx` picked the wrong vault
+    // account (e.g. the bot's own token account, not the pool's),
+    // producing reserves that make the math backwards. We can't
+    // distinguish "wrong reserves" from "victim got lucky" without
+    // off-chain pool oracles, so we treat counterfactual < actual as a
+    // reserves-inference failure and let the dispatcher route to
+    // backrun-proxy.
     const reserves: PoolReserves = {
       tokenA: 10_000_000_000n,
       tokenB: 50_000_000_000n,
       tokenAMint: USDC,
       tokenBMint: SOL,
     };
-    // Victim got more output than the no-front-run counterfactual
-    // (synthetic case — wouldn't happen organically but defensive math).
     const victim = mkSwap({
       inputAmount: 1_000_000n,
-      outputAmount: 100_000_000_000n, // absurdly large output
+      outputAmount: 100_000_000_000n, // > what x·y=k predicts
     });
     const loss = reconstructCpmmLoss(victim, reserves, "raydium_amm_v4");
+    expect(loss.lossConfidence).toBe(0);
     expect(loss.lossInOutputToken).toBe(0n);
+    // Sentinel for the dispatcher: method is set to backrun-profit-proxy
+    // so the caller sees lossConfidence=0 and re-routes.
+    expect(loss.method).toBe("backrun-profit-proxy");
   });
 });
 
@@ -306,6 +315,59 @@ describe("computeLoss dispatcher", () => {
     expect(loss.method).toBe("backrun-profit-proxy");
     expect(loss.lossConfidence).toBe(0.85);
     expect(loss.lossInOutputToken).toBeGreaterThan(0n);
+  });
+
+  it("falls through to proxy when CPMM math produces inverted counterfactual (vault inference picked wrong account)", () => {
+    // Specific bug found in production smoke test on slot 362686298:
+    // `inferPoolReservesFromTx` picked a non-pool token account, the
+    // reserves were way too small, and the resulting counterfactual
+    // came out *less* than the victim's actual output. Pre-fix this
+    // would clamp loss to 0 and report `cpmm-reconstruction` with a
+    // nonsensical zero loss. Post-fix the dispatcher falls through to
+    // `backrun-profit-proxy` so the bot's realized profit becomes the
+    // loss estimate.
+    const invertedReserves: PoolReserves = {
+      tokenA: 10_000_000n, // pool reserves much smaller than the victim's trade
+      tokenB: 1_000_000n,
+      tokenAMint: USDC,
+      tokenBMint: SOL,
+    };
+    const front = mkSwap({
+      inputAmount: 1_000_000_000n,
+      outputAmount: 4_950_000n,
+      poolReservesBefore: invertedReserves,
+    });
+    const victim = mkSwap({
+      inputAmount: 500_000_000n,
+      outputAmount: 2_400_000n,
+    });
+    const back = mkSwap({
+      inputMint: SOL,
+      outputMint: USDC,
+      inputAmount: 4_950_000n,
+      outputAmount: 1_100_000_000n,
+    });
+    const match: LayerMatch = {
+      victim,
+      frontRun: front,
+      backRun: back,
+      attacker: front.signer,
+      pool: "POOL1",
+      layer: "L1",
+      confidence: 1.0,
+      status: "confirmed",
+      jitoBundled: true,
+      jitoTipLamports: 0n,
+    };
+    const loss = computeLoss(match);
+    expect(loss.method).toBe("backrun-profit-proxy");
+    expect(loss.lossConfidence).toBe(0.85);
+    // The proxy gets a real number even though CPMM was inverted.
+    expect(loss.lossInOutputToken).toBeGreaterThan(0n);
+    // Verify the production bug doesn't regress: lossUsd null (no oracle
+    // wired in unit tests) but loss output amount > 0 — never the
+    // pre-fix combo of method="cpmm-reconstruction" + lossInOutputToken=0
+    // that put loss_usd=null and loss_output_amount=0 on the row.
   });
 
   it("uses failed-backrun method when the back-run reverted (regardless of pool type)", () => {

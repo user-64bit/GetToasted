@@ -419,9 +419,13 @@ describe("detectSandwichForVictim — orchestration + post-filters", () => {
     expect(det).toBeNull();
   });
 
-  it("drops the detection when loss is below the 0.1% threshold", async () => {
-    // Front-run barely moves the price — back/front spread tiny — proxy
-    // loss < 0.1% of victim output.
+  it("admits a tight (L2) sandwich even when relative loss is below 0.1%", async () => {
+    // Adjacent same-pool same-signer pair → L2 fires. Loss may be tiny
+    // because the front-run barely moves the price (or because back/front
+    // spread is small), but a Jito-bundled or block-adjacent sandwich is
+    // a mechanically-confirmed attack regardless of extraction size.
+    // Guard 2b is L4-only; admitting low-extraction L2 detections is the
+    // correct behavior.
     const slot = 100n;
     const front = mkSwap({
       signer: ATTACKER,
@@ -439,8 +443,6 @@ describe("detectSandwichForVictim — orchestration + post-filters", () => {
       inputAmount: 500_000_000n,
       outputAmount: 2_500_000n, // gets exactly the same rate as front
     });
-    // Back-run sells everything at exactly cost (zero proxy profit) →
-    // zero loss → filtered.
     const back = mkSwap({
       signer: ATTACKER,
       txIndexInBlock: 7,
@@ -456,7 +458,8 @@ describe("detectSandwichForVictim — orchestration + post-filters", () => {
       candidates: [front, back],
       jito: makeJitoStub([]),
     });
-    expect(det).toBeNull();
+    expect(det).not.toBeNull();
+    expect(det!.layer).toBe("L2");
   });
 });
 
