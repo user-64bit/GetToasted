@@ -403,10 +403,14 @@ function VerdictPanel({
       </header>
 
       <div style={{ padding: 18 }}>
-        <RiskMeter
-          score={Math.max(0, Math.min(1, riskScore ?? 0))}
-          label="Pool risk score"
-        />
+        {data ? (
+          <RiskMeter
+            score={Math.max(0, Math.min(1, riskScore ?? 0))}
+            label="Pool risk score"
+          />
+        ) : (
+          <InertRiskMeter loading={loading} />
+        )}
 
         <div
           className="mt-6 grid gap-px sm:grid-cols-2"
@@ -426,27 +430,100 @@ function VerdictPanel({
           <Stat label="Pool" value={data?.pool ? truncate(data.pool) : "--"} wide />
         </div>
 
-        {isHigh ? (
-          <button
-            type="button"
-            className="gt-btn mt-6"
-            style={{
-              width: "100%",
-              background: "var(--threat-red)",
-              color: "var(--text-inverse)",
-              border: "1px solid var(--threat-red-border)",
-              borderRadius: "var(--radius-control)",
-              padding: "14px 16px",
-              fontFamily: "var(--font-mono)",
-              fontSize: 14,
-              fontWeight: 700,
-            }}
-          >
-            Execute with Jito Protection -&gt;
-          </button>
-        ) : null}
+        {isHigh ? <JitoCta /> : null}
       </div>
     </section>
+  );
+}
+
+function JitoCta() {
+  return (
+    <div
+      className="mt-6"
+      style={{
+        position: "relative",
+        background: "var(--threat-red-dim)",
+        border: "1px solid var(--threat-red-border)",
+        borderRadius: "var(--radius-panel)",
+        padding: 16,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(70% 100% at 100% 0%, rgba(255, 71, 71, 0.18), transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+      <div style={{ position: "relative" }}>
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="inline-block rounded-full"
+            style={{
+              width: 7,
+              height: 7,
+              background: "var(--threat-red)",
+              animation: "threat-pulse 2s infinite",
+              boxShadow: "0 0 8px var(--threat-red)",
+            }}
+          />
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              color: "var(--threat-red)",
+              textTransform: "uppercase",
+              letterSpacing: 0,
+            }}
+          >
+            Recommended action
+          </span>
+        </div>
+        <button
+          type="button"
+          className="gt-btn mt-3"
+          style={{
+            width: "100%",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            background: "var(--threat-red)",
+            color: "var(--text-inverse)",
+            border: "none",
+            borderRadius: "var(--radius-control)",
+            padding: "16px 18px",
+            fontFamily: "var(--font-mono)",
+            fontSize: 15,
+            fontWeight: 700,
+            letterSpacing: 0,
+            boxShadow: "0 6px 20px rgba(255, 71, 71, 0.18)",
+          }}
+        >
+          <span>Execute with Jito Protection</span>
+          <span aria-hidden style={{ fontSize: 18 }}>
+            →
+          </span>
+        </button>
+        <p
+          className="mt-3"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--text-tertiary)",
+            letterSpacing: 0,
+          }}
+        >
+          Routes through a Jito-bundled relayer · refuses to land if
+          front-run · no transaction is signed yet
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -482,6 +559,47 @@ function Stat({
       >
         {value}
       </p>
+    </div>
+  );
+}
+
+function InertRiskMeter({ loading }: { loading: boolean }) {
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-label">Pool risk score</span>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            color: "var(--text-tertiary)",
+            letterSpacing: 0,
+          }}
+        >
+          {loading ? "—" : "—"}
+        </span>
+      </div>
+      <div
+        className="relative rounded-full overflow-hidden"
+        style={{
+          height: 6,
+          background: "var(--bg-elevated)",
+          border: "1px dashed var(--border-subtle)",
+        }}
+      >
+        {loading && (
+          <div
+            className="gt-scan-shimmer"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(90deg, transparent, var(--accent-dim), transparent)",
+              opacity: 0.6,
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

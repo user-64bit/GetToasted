@@ -28,13 +28,21 @@ const rows = [
     time: "slot 418,101,778",
     venue: "PumpSwap",
     pair: "LONGTAIL/SOL",
-    lossUsd: null,
-    lossOutputAmount: "74218810",
+    lossUsd: 22.50,
     attacker: "3cxZai94fxXF5sQdLUhwUiVQioAxkdrQcFTJkwrsKNS8",
     attackerLabel: null,
     confidence: "0.65",
   },
-];
+] satisfies ReadonlyArray<{
+  layer: string;
+  time: string;
+  venue: string;
+  pair: string;
+  lossUsd: number;
+  attacker: string;
+  attackerLabel: string | null;
+  confidence: string;
+}>;
 
 export function SampleScan() {
   return (
@@ -70,7 +78,7 @@ export function SampleScan() {
         <div className="text-right">
           <p className="text-label">Total extracted</p>
           <div className="mt-1">
-            <LossValue value={247.83} size="lg" />
+            <LossValue value={247.81} size="lg" />
           </div>
         </div>
       </header>
@@ -78,7 +86,7 @@ export function SampleScan() {
       <div className="grid grid-cols-3 gap-px" style={{ background: "var(--border-subtle)" }}>
         <Metric label="Detections" value="3" tone="threat" />
         <Metric label="Top layer" value="L1" />
-        <Metric label="Unknown USD" value="1" tone="amber" />
+        <Metric label="Window" value="30d" />
       </div>
 
       <div style={{ padding: 16 }}>
@@ -127,11 +135,7 @@ export function SampleScan() {
                     <AttackerAddress address={row.attacker} label={row.attackerLabel} />
                   </div>
                 </div>
-                <LossValue
-                  value={row.lossUsd}
-                  outputAmount={row.lossOutputAmount}
-                  size="sm"
-                />
+                <LossValue value={row.lossUsd} size="sm" />
               </div>
             </article>
           ))}

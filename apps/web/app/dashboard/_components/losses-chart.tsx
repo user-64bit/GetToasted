@@ -22,6 +22,11 @@ interface LossesChartProps {
 }
 
 export function LossesChart({ data }: LossesChartProps) {
+  const total = data.reduce((sum, d) => sum + d.loss, 0);
+  const hasData = total > 0;
+  const windowLabel =
+    data.length === 1 ? "1 MONTH" : `${data.length} MONTHS`;
+
   return (
     <div
       style={{
@@ -41,9 +46,33 @@ export function LossesChart({ data }: LossesChartProps) {
             letterSpacing: 0,
           }}
         >
-          12 MONTHS
+          {windowLabel}
         </p>
       </header>
+      {!hasData ? (
+        <div
+          style={{
+            height: 240,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px dashed var(--border-subtle)",
+            borderRadius: 6,
+            background: "var(--bg-field)",
+          }}
+        >
+          <p
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              color: "var(--text-tertiary)",
+              letterSpacing: 0,
+            }}
+          >
+            No USD-priced losses in window
+          </p>
+        </div>
+      ) : (
       <div style={{ width: "100%", height: 240 }}>
         <ResponsiveContainer>
           <AreaChart data={data} margin={{ top: 10, right: 6, bottom: 0, left: -8 }}>
@@ -79,6 +108,7 @@ export function LossesChart({ data }: LossesChartProps) {
           </AreaChart>
         </ResponsiveContainer>
       </div>
+      )}
     </div>
   );
 }

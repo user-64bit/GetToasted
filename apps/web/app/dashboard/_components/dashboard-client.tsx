@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 // useMe is no longer needed: SIWS gating was removed for the v1 demo
@@ -11,6 +12,7 @@ import {
 } from "../../lib/api/wallets";
 import { ApiError } from "../../lib/api/fetcher";
 import { CompleteView } from "./complete-view";
+import { DashboardTopbar } from "./dashboard-topbar";
 import { ScanningView } from "./scanning-view";
 import { buildDashboardData } from "./view-model";
 
@@ -60,15 +62,12 @@ export function DashboardClient({ wallet }: DashboardClientProps) {
   }, [summaryQ.data, sandwichesQ.data]);
 
   if (summaryQ.isLoading) {
-    return <CenterMessage label="Loading wallet…" />;
+    return <CenterMessage label="Loading wallet" />;
   }
 
   if (summaryQ.isError) {
     return (
-      <CenterMessage
-        label="Failed to load wallet"
-        detail={errorMessage(summaryQ.error)}
-      />
+      <ScanFailed wallet={wallet} reason={errorMessage(summaryQ.error)} />
     );
   }
 
@@ -95,15 +94,12 @@ export function DashboardClient({ wallet }: DashboardClientProps) {
   // to the perpetual "Loading attacks…" placeholder.
   if (sandwichesQ.isError) {
     return (
-      <CenterMessage
-        label="Failed to load attacks"
-        detail={errorMessage(sandwichesQ.error)}
-      />
+      <ScanFailed wallet={wallet} reason={errorMessage(sandwichesQ.error)} />
     );
   }
 
   if (!data) {
-    return <CenterMessage label="Loading attacks…" />;
+    return <CenterMessage wallet={wallet} label="Loading attacks" />;
   }
 
   return <CompleteView wallet={wallet} data={data} />;
@@ -111,92 +107,158 @@ export function DashboardClient({ wallet }: DashboardClientProps) {
 
 function ScanFailed({ wallet, reason }: { wallet: string; reason: string }) {
   const startScan = useStartScan(wallet);
-  // v1 demo: scan is anonymous, so retry is always available.
-  const canRetry = true;
-  void wallet; // wallet kept on signature for future use
+  const truncated =
+    wallet.length > 10 ? `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : wallet;
 
   // Surface upstream rate-limiting in plainer language so the user knows
   // it's not a bug in their wallet — the API hit a quota.
   const isRateLimit = /rate limit|max usage|429/i.test(reason);
-  const headline = isRateLimit ? "Scan blocked: API quota exhausted." : "Scan failed.";
+  const headline = isRateLimit
+    ? "Scan blocked: API quota exhausted."
+    : "Scan failed.";
   const detail = isRateLimit
     ? "The on-chain data provider (Helius) is at its monthly quota. Retry once it resets, or upgrade the API plan."
     : reason;
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6">
-      <div className="max-w-md w-full text-center">
-        <p className="text-label" style={{ color: "var(--threat-red)" }}>
-          Scan error
-        </p>
-        <h1 className="text-h1 mt-3">{headline}</h1>
-        <p
-          className="mt-3"
+    <>
+      <DashboardTopbar wallet={wallet} />
+      <main className="px-5 py-12 md:px-10 md:py-16">
+        <section
+          className="mx-auto"
           style={{
-            fontFamily: "var(--font-sans)",
-            fontSize: 15,
-            lineHeight: 1.6,
-            color: "var(--text-secondary)",
+            maxWidth: 560,
+            background: "var(--bg-surface)",
+            border: "1px solid var(--threat-red-border)",
+            borderRadius: "var(--radius-panel)",
+            overflow: "hidden",
           }}
         >
-          {detail}
-        </p>
-        <p
-          className="mt-4"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: "var(--text-secondary)",
-            opacity: 0.6,
-            wordBreak: "break-word",
-          }}
-        >
-          {reason}
-        </p>
-
-        {canRetry && (
-          <button
-            type="button"
-            onClick={() => startScan.mutate()}
-            disabled={startScan.isPending}
-            className="inline-flex items-center mt-8 gt-btn"
+          <header
             style={{
-              background: "var(--accent)",
-              color: "var(--text-inverse)",
-              padding: "12px 20px",
-              borderRadius: 6,
-              fontFamily: "var(--font-mono)",
-              fontSize: 13,
-              fontWeight: 500,
-              letterSpacing: 0,
-              gap: 8,
+              padding: "14px 18px",
+              borderBottom: "1px solid var(--threat-red-border)",
+              background: "var(--threat-red-dim)",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
             }}
           >
-            {startScan.isPending ? "Queuing…" : "Retry scan →"}
-          </button>
-        )}
+            <span
+              aria-hidden
+              className="inline-block rounded-full"
+              style={{
+                width: 8,
+                height: 8,
+                background: "var(--threat-red)",
+                animation: "threat-pulse 2s infinite",
+              }}
+            />
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: "var(--threat-red)",
+                textTransform: "uppercase",
+                letterSpacing: 0,
+              }}
+            >
+              Scan error · {truncated}
+            </span>
+          </header>
 
-        {startScan.isError && (
-          <p
-            className="mt-4"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "var(--threat-red)",
-            }}
-          >
-            {errorMessage(startScan.error)}
-          </p>
-        )}
-      </div>
-    </main>
+          <div style={{ padding: 22 }}>
+            <h1 className="text-h2">{headline}</h1>
+            <p
+              className="mt-3"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: 14,
+                lineHeight: 1.6,
+                color: "var(--text-secondary)",
+              }}
+            >
+              {detail}
+            </p>
+            {!isRateLimit && (
+              <pre
+                className="mt-4"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  color: "var(--text-tertiary)",
+                  background: "var(--bg-field)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: 4,
+                  padding: 10,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  margin: 0,
+                }}
+              >
+                {reason}
+              </pre>
+            )}
+
+            <div className="mt-6 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => startScan.mutate()}
+                disabled={startScan.isPending}
+                className="gt-btn"
+                style={{
+                  background: "var(--accent)",
+                  color: "var(--text-inverse)",
+                  padding: "10px 16px",
+                  borderRadius: 6,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  letterSpacing: 0,
+                }}
+              >
+                {startScan.isPending ? "Queuing…" : "Retry scan →"}
+              </button>
+              <Link
+                href="/"
+                className="gt-btn-secondary"
+                style={{
+                  border: "1px solid var(--border-default)",
+                  borderRadius: 6,
+                  padding: "10px 14px",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 13,
+                  color: "var(--text-secondary)",
+                  letterSpacing: 0,
+                }}
+              >
+                Different wallet
+              </Link>
+            </div>
+
+            {startScan.isError && (
+              <p
+                className="mt-4"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12,
+                  color: "var(--threat-red)",
+                }}
+              >
+                {errorMessage(startScan.error)}
+              </p>
+            )}
+          </div>
+        </section>
+      </main>
+    </>
   );
 }
 
 function NoScanYet({ wallet }: { wallet: string }) {
   // v1 demo: POST /scan is unauthenticated (SIWS gate removed for the
-  // paste-wallet flow). Auto-trigger the scan on mount so the user
-  // who just submitted on the landing page sees the scanning view
+  // paste-wallet flow). Auto-trigger the scan on mount so the user who
+  // just submitted on the landing page sees the scanning view
   // immediately rather than having to click a second button.
   const startScan = useStartScan(wallet);
   const triggered = useRef(false);
@@ -208,97 +270,136 @@ function NoScanYet({ wallet }: { wallet: string }) {
     startScan.mutate();
   }, [startScan]);
 
+  if (startScan.isError) {
+    return (
+      <ScanFailed wallet={wallet} reason={errorMessage(startScan.error)} />
+    );
+  }
+
   return (
-    <main className="min-h-screen flex items-center justify-center px-6">
-      <div className="max-w-md w-full text-center">
-        <p className="text-label">Wallet</p>
-        <h1 className="text-h1 mt-3">
-          {startScan.isError ? "Scan failed to start." : "Queuing scan…"}
-        </h1>
-        <p
-          className="mt-3"
-          style={{
-            fontFamily: "var(--font-sans)",
-            fontSize: 15,
-            lineHeight: 1.6,
-            color: "var(--text-secondary)",
-          }}
-        >
-          {startScan.isError
-            ? "We couldn't reach the scan service. Try again in a moment."
-            : "Spinning up a forensic scan of this wallet."}
-        </p>
-
-        {startScan.isError && (
-          <button
-            type="button"
-            onClick={() => {
-              triggered.current = true;
-              startScan.mutate();
-            }}
-            disabled={startScan.isPending}
-            className="inline-flex items-center mt-8 gt-btn"
-            style={{
-              background: "var(--accent)",
-              color: "var(--text-inverse)",
-              padding: "12px 20px",
-              borderRadius: 6,
-              fontFamily: "var(--font-mono)",
-              fontSize: 13,
-              fontWeight: 500,
-              letterSpacing: 0,
-              gap: 8,
-            }}
-          >
-            {startScan.isPending ? "Queuing…" : "Retry scan →"}
-          </button>
-        )}
-
-        {startScan.isError && (
+    <>
+      <DashboardTopbar wallet={wallet} />
+      <main className="px-5 py-12 md:px-10 md:py-16">
+        <div className="mx-auto" style={{ maxWidth: 720 }}>
+          <p className="text-label">Dashboard / queued</p>
+          <h1 className="text-h1 mt-3">Booting forensic scan…</h1>
           <p
-            className="mt-4"
+            className="mt-3"
             style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "var(--threat-red)",
+              maxWidth: 560,
+              fontFamily: "var(--font-sans)",
+              fontSize: 15,
+              lineHeight: 1.55,
+              color: "var(--text-secondary)",
             }}
           >
-            {errorMessage(startScan.error)}
+            Allocating a worker on the queue. The first batch lands in a few
+            seconds.
           </p>
-        )}
-      </div>
-    </main>
+          <div className="mt-8">
+            <StageRailTeaser />
+          </div>
+        </div>
+      </main>
+    </>
   );
 }
 
-function CenterMessage({ label, detail }: { label: string; detail?: string }) {
+const STAGE_LABELS = ["Queue", "Fetch", "Decode", "Detect", "Score"] as const;
+
+function StageRailTeaser() {
   return (
-    <main className="min-h-screen flex items-center justify-center px-6">
-      <div className="text-center">
-        <p
+    <div
+      style={{
+        background: "var(--bg-surface)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-panel)",
+        padding: 18,
+      }}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <span className="gt-scan-pulse-dot" aria-hidden />
+        <span
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 13,
-            color: "var(--text-secondary)",
+            fontSize: 11,
+            color: "var(--accent-strong)",
+            textTransform: "uppercase",
             letterSpacing: 0,
           }}
         >
-          {label}
-        </p>
-        {detail && (
-          <p
-            className="mt-2"
+          Waiting for worker
+        </span>
+      </div>
+      <div
+        className="grid gap-2"
+        style={{
+          gridTemplateColumns: `repeat(${STAGE_LABELS.length}, 1fr)`,
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+        }}
+      >
+        {STAGE_LABELS.map((label, i) => (
+          <div
+            key={label}
+            style={{
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-chip)",
+              padding: "8px 10px",
+              background:
+                i === 0 ? "var(--bg-overlay)" : "var(--bg-field)",
+              color:
+                i === 0 ? "var(--accent-strong)" : "var(--text-muted)",
+              textTransform: "uppercase",
+            }}
+            className={i === 0 ? "gt-stage-active" : undefined}
+          >
+            {label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CenterMessage({ wallet, label }: { wallet?: string; label: string }) {
+  return (
+    <>
+      {wallet ? <DashboardTopbar wallet={wallet} /> : null}
+      <main
+        className="px-5 py-16"
+        style={{
+          minHeight: wallet ? "calc(100vh - 56px)" : "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "10px 16px",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: 999,
+            background: "var(--bg-surface)",
+          }}
+        >
+          <span className="gt-scan-pulse-dot" aria-hidden />
+          <span
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 12,
-              color: "var(--threat-red)",
+              color: "var(--text-secondary)",
+              letterSpacing: 0,
             }}
           >
-            {detail}
-          </p>
-        )}
-      </div>
-    </main>
+            {label}
+          </span>
+        </div>
+      </main>
+    </>
   );
 }
 

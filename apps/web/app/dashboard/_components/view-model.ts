@@ -128,7 +128,19 @@ function buildMonthlySeries(
     if (bucket) bucket.loss += s.lossUsd ?? 0;
   }
 
-  return buckets.map((b) => ({
+  // Trim leading zero-buckets so the chart isn't 11 empty months for a
+  // wallet that started getting hit recently. Keep at least 4 buckets so
+  // the line has shape — a single point against a flat axis reads as a
+  // bug. If nothing has loss at all, fall back to a 4-bucket window so
+  // the empty-state rendering still has axes to lay out.
+  const minWindow = 4;
+  const firstNonZero = buckets.findIndex((b) => b.loss > 0);
+  const start =
+    firstNonZero === -1
+      ? Math.max(0, buckets.length - minWindow)
+      : Math.min(firstNonZero, buckets.length - minWindow);
+
+  return buckets.slice(start).map((b) => ({
     month: b.month,
     loss: Math.round(b.loss * 100) / 100,
   }));

@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { DashboardClient } from "./_components/dashboard-client";
+import { TerminalScanInput } from "../_components/terminal-scan-input";
+import { CommandBar } from "../_components/command-bar";
 
 interface DashboardPageProps {
   searchParams: Promise<{
@@ -28,39 +29,41 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
 function NoWallet() {
   return (
-    <main className="min-h-screen flex items-center justify-center px-6">
-      <div className="max-w-md w-full text-center">
-        <p className="text-label">Dashboard</p>
-        <h1 className="text-h1 mt-3">No wallet selected.</h1>
-        <p
-          className="mt-3"
+    <>
+      <CommandBar />
+      <main
+        className="min-h-screen flex items-center justify-center px-5"
+        style={{ paddingTop: 96, paddingBottom: 48 }}
+      >
+        <section
+          className="w-full"
           style={{
-            fontFamily: "var(--font-sans)",
-            fontSize: 15,
-            lineHeight: 1.6,
-            color: "var(--text-secondary)",
+            maxWidth: 560,
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-panel)",
+            padding: 28,
           }}
         >
-          Paste an address on the home page to begin a scan.
-        </p>
-        <Link
-          href="/"
-          className="inline-flex items-center mt-8 gt-btn"
-          style={{
-            background: "var(--accent)",
-            color: "var(--text-inverse)",
-            padding: "12px 20px",
-            borderRadius: 6,
-            fontFamily: "var(--font-mono)",
-            fontSize: 13,
-            fontWeight: 500,
-            letterSpacing: 0,
-            gap: 8,
-          }}
-        >
-          <span aria-hidden>←</span> Back to home
-        </Link>
-      </div>
-    </main>
+          <p className="text-label">Dashboard</p>
+          <h1 className="text-h1 mt-3">No wallet in the URL.</h1>
+          <p
+            className="mt-3"
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: 15,
+              lineHeight: 1.55,
+              color: "var(--text-secondary)",
+            }}
+          >
+            Paste a Solana address below to start a forensic scan. The scan is
+            read-only — no transaction is signed.
+          </p>
+          <div className="mt-6">
+            <TerminalScanInput />
+          </div>
+        </section>
+      </main>
+    </>
   );
 }
