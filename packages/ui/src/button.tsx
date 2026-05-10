@@ -30,7 +30,7 @@ const toneStyle = {
 export const Button = ({
   children,
   className,
-  appName: _appName,
+  appName,
   tone = "secondary",
   style,
   ...props
@@ -47,6 +47,7 @@ export const Button = ({
         fontWeight: 500,
         ...style,
       }}
+      data-app-name={appName}
       {...props}
     >
       {children}
