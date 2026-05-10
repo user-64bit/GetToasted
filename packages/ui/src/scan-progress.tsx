@@ -49,12 +49,14 @@ export function ScanProgress({
   const displayStatus = status ?? deriveStatus(clamped);
   const hasThreats = sandwichesFound > 0;
 
-  const startedAt = useRef<number>(Date.now());
+  const startedAt = useRef<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (clamped >= 100) return;
+    const startedAtMs = startedAt.current ?? Date.now();
+    startedAt.current = startedAtMs;
     const id = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startedAt.current) / 1000));
+      setElapsed(Math.floor((Date.now() - startedAtMs) / 1000));
     }, 500);
     return () => clearInterval(id);
   }, [clamped]);

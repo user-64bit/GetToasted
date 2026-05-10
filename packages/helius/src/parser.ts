@@ -11,7 +11,6 @@ import type {
   HeliusEnhancedTransaction,
   HeliusInnerSwap,
   HeliusSwapEvent,
-  HeliusTokenInput,
 } from "./client.js";
 
 const SOL_DECIMALS = 9;
