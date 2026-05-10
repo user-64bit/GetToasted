@@ -37,7 +37,7 @@ export function MonoNumber({
   decimals = 2,
   animated = false,
   color = "default",
-  durationMs = 1200,
+  durationMs = 520,
   className,
 }: MonoNumberProps) {
   const elRef = useRef<HTMLSpanElement | null>(null);

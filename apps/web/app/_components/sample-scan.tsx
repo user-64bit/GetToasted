@@ -1,154 +1,175 @@
 import { AttackerAddress } from "@get-toasted/ui/attacker-address";
-import { MonoNumber } from "@get-toasted/ui/mono-number";
-import { Reveal } from "./reveal";
+import { DetectionLayerBadge } from "@get-toasted/ui/detection-layer-badge";
+import { LossValue } from "@get-toasted/ui/loss-value";
 
-const sample = {
-  wallet: "9973huxmxR8sTxjZTvkLF7eDzVZNMvz5fG7QsRpwzWp6",
-  totalLossUsd: 247.83,
-  attacksFound: 3,
-  topAttack: {
-    date: "Feb 12, 2026",
-    pool: "Raydium",
+const rows = [
+  {
+    layer: "L1",
+    time: "slot 418,124,934",
+    venue: "Raydium",
     pair: "SOL/USDC",
     lossUsd: 142.2,
     attacker: "ArscACTiveSandWichBoTpUbKey1111111111111111",
-    validator: "DeezNode",
+    attackerLabel: "arsc-active",
+    confidence: "1.00",
   },
-};
+  {
+    layer: "L2",
+    time: "slot 418,119,402",
+    venue: "Orca",
+    pair: "BONK/SOL",
+    lossUsd: 83.11,
+    attacker: "B91piBSfCBRs5rUxCMRdJEGv7tNEnFxweWcdQJHJoFpi",
+    attackerLabel: "B91",
+    confidence: "0.95",
+  },
+  {
+    layer: "L4",
+    time: "slot 418,101,778",
+    venue: "PumpSwap",
+    pair: "LONGTAIL/SOL",
+    lossUsd: null,
+    lossOutputAmount: "74218810",
+    attacker: "3cxZai94fxXF5sQdLUhwUiVQioAxkdrQcFTJkwrsKNS8",
+    attackerLabel: null,
+    confidence: "0.65",
+  },
+];
 
 export function SampleScan() {
   return (
-    <section
-      style={{ padding: "96px 24px", borderTop: "1px solid var(--border-subtle)" }}
+    <aside
+      style={{
+        background: "var(--bg-surface)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-panel)",
+        overflow: "hidden",
+      }}
+      aria-label="Sample forensic scan"
     >
-      <div className="max-w-3xl mx-auto text-center">
-        <p className="text-label">A taste · sample scan</p>
-        <h2 className="text-h1 mt-3 mx-auto" style={{ maxWidth: 520 }}>
-          Here&apos;s what your dashboard could look like.
-        </h2>
-
-        <Reveal threshold={0.25} className="mt-12 text-left">
-          <article
+      <header
+        className="flex items-start justify-between gap-4"
+        style={{
+          padding: "14px 16px",
+          borderBottom: "1px solid var(--border-subtle)",
+        }}
+      >
+        <div>
+          <p className="text-label">Sample wallet report</p>
+          <p
+            className="mt-1"
             style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: 8,
-              overflow: "hidden",
+              fontFamily: "var(--font-mono)",
+              fontSize: 13,
+              color: "var(--text-tertiary)",
             }}
           >
-            <header
-              className="flex items-center justify-between"
+            9973h...zWp6
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-label">Total extracted</p>
+          <div className="mt-1">
+            <LossValue value={247.83} size="lg" />
+          </div>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-3 gap-px" style={{ background: "var(--border-subtle)" }}>
+        <Metric label="Detections" value="3" tone="threat" />
+        <Metric label="Top layer" value="L1" />
+        <Metric label="Unknown USD" value="1" tone="amber" />
+      </div>
+
+      <div style={{ padding: 16 }}>
+        <p className="text-label" style={{ marginBottom: 10 }}>
+          Detection stream
+        </p>
+        <div className="flex flex-col gap-2">
+          {rows.map((row) => (
+            <article
+              key={`${row.layer}-${row.time}`}
               style={{
-                padding: "14px 20px",
-                borderBottom: "1px solid var(--border-subtle)",
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.15em",
-                color: "var(--text-secondary)",
-                textTransform: "uppercase",
+                border: "1px solid var(--border-subtle)",
+                borderLeft: `2px solid ${
+                  row.layer === "L4" ? "var(--threat-amber)" : "var(--threat-red)"
+                }`,
+                borderRadius: "var(--radius-chip)",
+                padding: 12,
+                background: "var(--bg-elevated)",
               }}
             >
-              <span>
-                Sample scan · 9973h...zWp6
-              </span>
-              <span style={{ color: "var(--threat-red)" }}>
-                {sample.attacksFound} attacks found
-              </span>
-            </header>
-
-            <div style={{ padding: 24 }}>
-              <div className="flex items-baseline justify-between flex-wrap gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <DetectionLayerBadge layer={row.layer} />
                 <span
                   style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: 14,
-                    color: "var(--text-secondary)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--text-tertiary)",
                   }}
                 >
-                  Total extracted from this wallet
-                </span>
-                <span className="text-mono-lg">
-                  <MonoNumber
-                    value={sample.totalLossUsd}
-                    prefix="$"
-                    color="threat"
-                    animated
-                  />
+                  {row.time} / confidence {row.confidence}
                 </span>
               </div>
-
-              <article
-                className="mt-6"
-                style={{
-                  background: "var(--bg-elevated)",
-                  border: "1px solid var(--border-subtle)",
-                  borderLeft: "2px solid var(--threat-red)",
-                  borderRadius: 6,
-                  padding: "16px 20px",
-                }}
-              >
-                <div
-                  className="flex flex-wrap items-center gap-x-2"
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 13,
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  <span style={{ color: "var(--threat-red)" }}>●</span>
-                  <span>{sample.topAttack.date}</span>
-                  <span style={{ color: "var(--text-tertiary)" }}>·</span>
-                  <span>
-                    {sample.topAttack.pool} {sample.topAttack.pair}
-                  </span>
-                  <span style={{ color: "var(--text-tertiary)" }}>·</span>
-                  <span style={{ color: "var(--threat-red)" }}>
-                    ${sample.topAttack.lossUsd.toFixed(2)} lost
-                  </span>
+              <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+                <div>
+                  <p
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 13,
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    {row.venue} / {row.pair}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-label">Attacker</span>
+                    <AttackerAddress address={row.attacker} label={row.attackerLabel} />
+                  </div>
                 </div>
-                <div
-                  className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1"
-                  style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}
-                >
-                  <span style={{ color: "var(--text-secondary)" }}>Attacker:</span>
-                  <AttackerAddress address={sample.topAttack.attacker} />
-                  <span style={{ color: "var(--text-tertiary)" }}>·</span>
-                  <span style={{ color: "var(--text-secondary)" }}>Validator:</span>
-                  <span style={{ color: "var(--text-primary)" }}>
-                    {sample.topAttack.validator}
-                  </span>
-                </div>
-                <a
-                  href="#"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center mt-3 nav-link"
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                    color: "var(--accent)",
-                    gap: 4,
-                  }}
-                >
-                  View Transaction <span aria-hidden>↗</span>
-                </a>
-              </article>
-
-              <p
-                className="mt-4"
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  color: "var(--text-tertiary)",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                (2 more collapsed...)
-              </p>
-            </div>
-          </article>
-        </Reveal>
+                <LossValue
+                  value={row.lossUsd}
+                  outputAmount={row.lossOutputAmount}
+                  size="sm"
+                />
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
-    </section>
+    </aside>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "threat" | "amber";
+}) {
+  return (
+    <div style={{ background: "var(--bg-base)", padding: "12px 14px" }}>
+      <p className="text-label" style={{ fontSize: 9 }}>
+        {label}
+      </p>
+      <p
+        className="mt-1"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 22,
+          color:
+            tone === "threat"
+              ? "var(--threat-red)"
+              : tone === "amber"
+                ? "var(--threat-amber)"
+                : "var(--text-primary)",
+        }}
+      >
+        {value}
+      </p>
+    </div>
   );
 }

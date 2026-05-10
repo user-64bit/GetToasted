@@ -1,7 +1,8 @@
 "use client";
 
 import { AttackerAddress } from "@get-toasted/ui/attacker-address";
-import { MonoNumber } from "@get-toasted/ui/mono-number";
+import { DetectionLayerBadge } from "@get-toasted/ui/detection-layer-badge";
+import { LossValue } from "@get-toasted/ui/loss-value";
 import type { Sandwich } from "@get-toasted/ui/types";
 import { useMemo, useState } from "react";
 import { attackerDisplayName } from "./view-model";
@@ -65,11 +66,12 @@ export function SandwichTable({
   const exportCsv = () => {
     const header = [
       "Date",
-      "Pool",
+      "Layer",
+      "Venue",
       "Pair",
       "Loss USD",
       "Attacker",
-      "Validator",
+      "Confidence",
       "Slot",
       "Signature",
     ];
@@ -77,11 +79,12 @@ export function SandwichTable({
       header,
       ...filtered.map((s) => [
         new Date(s.detectedAt).toISOString(),
+        s.detectionLayer ?? "legacy",
         s.pool,
         s.pair,
-        s.lossUsd.toFixed(2),
+        s.lossUsd !== null ? s.lossUsd.toFixed(2) : "USD unknown",
         s.attacker,
-        s.validator ?? "",
+        typeof s.confidence === "number" ? s.confidence.toFixed(2) : "",
         String(s.slot),
         s.txSignature,
       ]),
@@ -105,7 +108,7 @@ export function SandwichTable({
   return (
     <div>
       <header className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <p className="text-label">All attacks · {filtered.length}</p>
+        <p className="text-label">Detections · {filtered.length}</p>
       </header>
 
       <div className="flex flex-wrap gap-2 mb-4">
@@ -135,7 +138,7 @@ export function SandwichTable({
         />
         <input
           type="search"
-          placeholder="Search..."
+          placeholder="Search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Search attacks"
@@ -187,11 +190,12 @@ export function SandwichTable({
               }}
             >
               <Th>Date</Th>
-              <Th>Pool</Th>
+              <Th>Layer</Th>
+              <Th>Venue</Th>
               <Th>Pair</Th>
               <Th>Loss</Th>
               <Th>Attacker</Th>
-              <Th>Validator</Th>
+              <Th>Confidence</Th>
               <Th>Tx</Th>
             </tr>
           </thead>
@@ -199,7 +203,7 @@ export function SandwichTable({
             {filtered.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   style={{
                     padding: 32,
                     textAlign: "center",
@@ -221,15 +225,22 @@ export function SandwichTable({
                       year: "numeric",
                     })}
                   </Td>
+                  <Td>
+                    <DetectionLayerBadge layer={s.detectionLayer} />
+                  </Td>
                   <Td>{s.pool}</Td>
                   <Td>{s.pair}</Td>
                   <Td>
-                    <MonoNumber value={s.lossUsd} prefix="$" color="threat" />
+                    <LossValue
+                      value={s.lossUsd}
+                      outputAmount={s.lossOutputAmount}
+                      size="sm"
+                    />
                   </Td>
                   <Td>
-                    <AttackerAddress address={s.attacker} />
+                    <AttackerAddress address={s.attacker} label={s.knownBotName} />
                   </Td>
-                  <Td>{s.validator ?? "—"}</Td>
+                  <Td>{typeof s.confidence === "number" ? s.confidence.toFixed(2) : "--"}</Td>
                   <Td>
                     <a
                       href={`https://solscan.io/tx/${encodeURIComponent(s.txSignature)}`}
@@ -260,7 +271,7 @@ function Th({ children }: { children: React.ReactNode }) {
         fontFamily: "var(--font-mono)",
         fontSize: 10,
         fontWeight: 400,
-        letterSpacing: "0.15em",
+        letterSpacing: 0,
         textTransform: "uppercase",
         color: "var(--text-secondary)",
         whiteSpace: "nowrap",

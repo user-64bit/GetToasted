@@ -11,12 +11,11 @@ import {
   YAxis,
 } from "recharts";
 
-// Hex equivalents of the design tokens — recharts can't read CSS variables.
-// If a token changes, mirror it here.
-const C_LINE = "#4f7fff";
-const C_GRID = "#1a1a1a";
-const C_AXIS = "#444444";
-const C_DOT_BG = "#080808";
+const C_LINE = "var(--chart-line)";
+const C_GRID = "var(--chart-grid)";
+const C_AXIS = "var(--text-tertiary)";
+const C_DOT_BG = "var(--bg-void)";
+const C_CURSOR = "var(--border-strong)";
 
 interface LossesChartProps {
   data: { month: string; loss: number }[];
@@ -39,7 +38,7 @@ export function LossesChart({ data }: LossesChartProps) {
             fontFamily: "var(--font-mono)",
             fontSize: 11,
             color: "var(--text-tertiary)",
-            letterSpacing: "0.1em",
+            letterSpacing: 0,
           }}
         >
           12 MONTHS
@@ -68,10 +67,7 @@ export function LossesChart({ data }: LossesChartProps) {
               tickFormatter={(v) => `$${v}`}
               width={48}
             />
-            <Tooltip
-              cursor={{ stroke: "#3a3a3a", strokeWidth: 1 }}
-              content={CustomTooltip}
-            />
+            <Tooltip cursor={{ stroke: C_CURSOR, strokeWidth: 1 }} content={CustomTooltip} />
             <Area
               type="monotone"
               dataKey="loss"

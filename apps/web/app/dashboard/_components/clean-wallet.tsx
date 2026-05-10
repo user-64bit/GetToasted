@@ -13,110 +13,94 @@ export function CleanWallet({
   lastScanAt,
 }: CleanWalletProps) {
   return (
-    <div
-      className="flex items-center justify-center"
-      style={{ minHeight: "70vh", padding: "48px 24px" }}
-    >
-      <div
-        className="text-center"
-        style={{
-          padding: "56px 40px",
-          borderRadius: 12,
-          maxWidth: 480,
-          background:
-            "radial-gradient(ellipse 70% 60% at center, var(--safe-green-dim), transparent 70%)",
-        }}
-      >
-        <svg
-          width="64"
-          height="64"
-          viewBox="0 0 64 64"
-          style={{ margin: "0 auto", display: "block" }}
-          aria-hidden
-        >
-          <circle
-            cx="32"
-            cy="32"
-            r="28"
-            fill="none"
-            stroke="var(--safe-green)"
-            strokeWidth="2"
-            opacity="0.4"
-          />
-          <path
-            d="M20 33 L29 42 L44 24"
-            fill="none"
-            stroke="var(--safe-green)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeDasharray="50"
-            strokeDashoffset="50"
-            style={{ animation: "draw-check 400ms 200ms ease-out forwards" }}
-          />
-        </svg>
+    <main className="px-4 py-10 md:px-12 md:py-16">
+      <div className="mx-auto max-w-4xl">
+        <p className="text-label">Forensic verdict</p>
+        <h1 className="text-h1 mt-3">No sandwich attacks detected.</h1>
         <p
-          className="text-h1 mt-8"
-          style={{ color: "var(--safe-green)", letterSpacing: "-0.01em" }}
-        >
-          You&apos;re clean.
-        </p>
-        <p
-          className="mt-4"
+          className="mt-3"
           style={{
+            maxWidth: 620,
             fontFamily: "var(--font-sans)",
             fontSize: 15,
-            color: "var(--text-secondary)",
             lineHeight: 1.55,
+            color: "var(--text-secondary)",
           }}
         >
-          No sandwich attacks detected across{" "}
-          <span style={{ color: "var(--text-primary)" }}>
-            {transactionsAnalyzed.toLocaleString("en-US")}
-          </span>{" "}
-          transactions analyzed.
+          The scan completed without finding a confirmed or suspected sandwich
+          bracket against this wallet.
         </p>
 
-        <div className="mt-6">
-          <LastScanned wallet={wallet} lastScanAt={lastScanAt} />
-        </div>
+        <section
+          className="mt-8"
+          style={{
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-panel)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            className="grid gap-px sm:grid-cols-3"
+            style={{ background: "var(--border-subtle)" }}
+          >
+            <Metric label="Detections" value="0" tone="safe" />
+            <Metric
+              label="Transactions analyzed"
+              value={transactionsAnalyzed.toLocaleString("en-US")}
+            />
+            <Metric label="Verdict" value="Clean" tone="safe" />
+          </div>
 
-        <div className="flex flex-wrap gap-3 justify-center mt-10">
-          <button
-            type="button"
-            className="gt-btn-secondary"
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border-default)",
-              borderRadius: 6,
-              padding: "12px 18px",
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "var(--text-primary)",
-              cursor: "pointer",
-              letterSpacing: "0.04em",
-            }}
+          <div
+            className="flex flex-wrap items-center justify-between gap-4"
+            style={{ padding: 20 }}
           >
-            Share this result
-          </button>
-          <Link
-            href="/"
-            className="gt-btn"
-            style={{
-              background: "var(--safe-green)",
-              color: "var(--text-inverse)",
-              borderRadius: 6,
-              padding: "12px 18px",
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: "0.04em",
-            }}
-          >
-            Check another wallet
-          </Link>
-        </div>
+            <LastScanned wallet={wallet} lastScanAt={lastScanAt} />
+            <Link
+              href="/"
+              className="gt-btn-secondary"
+              style={{
+                border: "1px solid var(--border-default)",
+                borderRadius: "var(--radius-control)",
+                padding: "10px 14px",
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                color: "var(--text-primary)",
+              }}
+            >
+              Check another wallet
+            </Link>
+          </div>
+        </section>
       </div>
+    </main>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "safe";
+}) {
+  return (
+    <div style={{ background: "var(--bg-surface)", padding: 18 }}>
+      <p className="text-label">{label}</p>
+      <p
+        className="mt-2"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 28,
+          color: tone === "safe" ? "var(--safe-green)" : "var(--text-primary)",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {value}
+      </p>
     </div>
   );
 }

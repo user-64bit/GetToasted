@@ -37,7 +37,7 @@ export function LastScanned({ wallet, lastScanAt }: LastScannedProps) {
         style={{
           fontFamily: "var(--font-mono)",
           fontSize: 11,
-          letterSpacing: "0.04em",
+          letterSpacing: 0,
           color: stale ? "var(--threat-red)" : "var(--text-secondary)",
           opacity: stale ? 0.95 : 0.7,
         }}
@@ -59,7 +59,7 @@ export function LastScanned({ wallet, lastScanAt }: LastScannedProps) {
           fontSize: 11,
           color: "var(--text-primary)",
           cursor: startScan.isPending ? "wait" : "pointer",
-          letterSpacing: "0.04em",
+          letterSpacing: 0,
           opacity: startScan.isPending ? 0.5 : 1,
         }}
       >

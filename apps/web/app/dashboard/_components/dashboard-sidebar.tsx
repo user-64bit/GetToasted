@@ -25,12 +25,12 @@ export function DashboardSidebar({ wallet }: DashboardSidebarProps) {
         <Link
           href="/"
           style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 16,
-            fontWeight: 500,
-            letterSpacing: "0.02em",
-          }}
-        >
+          fontFamily: "var(--font-mono)",
+          fontSize: 16,
+          fontWeight: 500,
+          letterSpacing: 0,
+        }}
+      >
           Get<span style={{ color: "var(--threat-red)" }}>Toasted</span>
         </Link>
       </div>
@@ -40,7 +40,6 @@ export function DashboardSidebar({ wallet }: DashboardSidebarProps) {
           Dashboard
         </NavItem>
         <NavItem href="/simulator">Simulator</NavItem>
-        <NavItem href="/docs">Docs</NavItem>
       </nav>
 
       <div className="mt-auto" style={{ padding: "0 20px" }}>

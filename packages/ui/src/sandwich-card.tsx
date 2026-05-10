@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AttackerAddress } from "./attacker-address";
-import { MonoNumber } from "./mono-number";
+import { DetectionLayerBadge } from "./detection-layer-badge";
+import { LossValue } from "./loss-value";
 import type { Sandwich } from "./types";
 import { cn } from "./utils";
 
@@ -37,14 +38,15 @@ export function SandwichCard({
   return (
     <article
       className={cn(
-        "relative rounded-lg overflow-hidden",
+        "relative overflow-hidden",
         isNew && "gt-card-flash gt-slide-in-right",
         className,
       )}
       style={{
         background: "var(--bg-surface)",
         border: "1px solid var(--border-subtle)",
-        padding: "16px 20px",
+        borderRadius: "var(--radius-panel)",
+        padding: 16,
       }}
     >
       {showNewBadge && (
@@ -56,7 +58,8 @@ export function SandwichCard({
             color: "var(--threat-red)",
             fontFamily: "var(--font-mono)",
             fontSize: 10,
-            letterSpacing: "0.15em",
+            letterSpacing: 0,
+            textTransform: "uppercase",
           }}
         >
           NEW
@@ -73,33 +76,70 @@ export function SandwichCard({
         </span>
       )}
 
-      <div
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 12,
-          color: "var(--text-secondary)",
-        }}
-      >
-        {dateStr} · {sandwich.pool} · {sandwich.pair}
+      <div className="flex flex-wrap items-center gap-2">
+        <DetectionLayerBadge layer={sandwich.detectionLayer} />
+        {sandwich.jitoBundled && sandwich.detectionLayer !== "L1" ? (
+          <DetectionLayerBadge layer="L1" />
+        ) : null}
+        {sandwich.failed ? (
+          <span
+            style={{
+              border: "1px solid var(--threat-amber-border)",
+              background: "var(--threat-amber-dim)",
+              color: "var(--threat-amber)",
+              borderRadius: "var(--radius-chip)",
+              padding: "3px 6px",
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              textTransform: "uppercase",
+            }}
+          >
+            failed backrun
+          </span>
+        ) : null}
       </div>
 
       <div
-        className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1"
-        style={{ fontFamily: "var(--font-mono)", fontSize: 14 }}
+        className="mt-3 grid gap-3 md:grid-cols-[1fr_auto]"
+        style={{ fontFamily: "var(--font-mono)" }}
       >
-        <span style={{ color: "var(--text-secondary)" }}>Loss:</span>
-        <MonoNumber
-          value={sandwich.lossUsd}
-          prefix="$"
-          color="threat"
-          animated
-        />
-        <span style={{ color: "var(--text-tertiary)" }}>·</span>
-        <span style={{ color: "var(--text-secondary)" }}>Attacker:</span>
-        <AttackerAddress address={sandwich.attacker} />
-        <span style={{ color: "var(--text-tertiary)" }}>·</span>
-        <span style={{ color: "var(--text-secondary)" }}>Slot:</span>
-        <span>{sandwich.slot.toLocaleString("en-US")}</span>
+        <div>
+          <p
+            style={{
+              color: "var(--text-secondary)",
+              fontSize: 12,
+              marginBottom: 6,
+            }}
+          >
+            {dateStr} / {sandwich.pool} / {sandwich.pair}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>
+              Attacker
+            </span>
+            <AttackerAddress
+              address={sandwich.attacker}
+              label={sandwich.knownBotName}
+            />
+            <span style={{ color: "var(--text-tertiary)" }}>/</span>
+            <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>
+              Slot
+            </span>
+            <span style={{ fontSize: 13 }}>
+              {sandwich.slot.toLocaleString("en-US")}
+            </span>
+          </div>
+        </div>
+        <div className="md:text-right">
+          <p className="text-label" style={{ marginBottom: 4 }}>
+            Extracted
+          </p>
+          <LossValue
+            value={sandwich.lossUsd}
+            outputAmount={sandwich.lossOutputAmount}
+            animated
+          />
+        </div>
       </div>
     </article>
   );

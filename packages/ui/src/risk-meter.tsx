@@ -53,7 +53,7 @@ export function RiskMeter({
             width: `${animated * 100}%`,
             background:
               "linear-gradient(90deg, var(--safe-green) 0%, var(--threat-amber) 55%, var(--threat-red) 100%)",
-            transition: "width 700ms cubic-bezier(0.16, 1, 0.3, 1)",
+            transition: "width 520ms cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         />
       </div>

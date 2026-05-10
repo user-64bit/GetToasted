@@ -1,4 +1,5 @@
 import { MonoNumber } from "@get-toasted/ui/mono-number";
+import { LossValue } from "@get-toasted/ui/loss-value";
 import type { ThreatLevel } from "@get-toasted/ui/types";
 import type { DashboardData } from "./view-model";
 
@@ -9,18 +10,13 @@ interface KpiRowProps {
 export function KpiRow({ data }: KpiRowProps) {
   return (
     <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-      <Kpi label="Total extracted" subline="▲ all time">
+      <Kpi label="Total extracted" subline="all time">
         <span className="text-mono-lg">
-          <MonoNumber
-            value={data.totalLossUsd}
-            prefix="$"
-            color="threat"
-            animated
-          />
+          <LossValue value={data.totalLossUsd} animated size="lg" />
         </span>
       </Kpi>
 
-      <Kpi label="Attacks found" subline="▲ lifetime">
+      <Kpi label="Attacks found" subline="lifetime">
         <span className="text-mono-lg">
           <MonoNumber
             value={data.attacksFound}
@@ -87,7 +83,7 @@ function Kpi({
             fontFamily: "var(--font-mono)",
             fontSize: 11,
             color: "var(--text-secondary)",
-            letterSpacing: "0.04em",
+            letterSpacing: 0,
           }}
         >
           {subline}
@@ -124,7 +120,7 @@ function RiskDisplay({ level }: { level: ThreatLevel }) {
         display: "inline-flex",
         alignItems: "center",
         gap: 12,
-        letterSpacing: "0.04em",
+        letterSpacing: 0,
       }}
     >
       {level === "high" && (
@@ -145,7 +141,7 @@ function RiskDisplay({ level }: { level: ThreatLevel }) {
 }
 
 function riskSubline(level: ThreatLevel): string {
-  if (level === "high") return "● Active threats";
+  if (level === "high") return "active threats";
   if (level === "medium") return "Some exposure detected";
   if (level === "low") return "Minimal exposure";
   return "No exposure";

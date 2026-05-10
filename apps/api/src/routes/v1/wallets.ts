@@ -211,6 +211,10 @@ function serializeSandwich(row: Sandwiches.SandwichRow) {
     failed: row.failed,
     isKnownBot: row.isKnownBot,
     knownBotName: row.knownBotName,
+    detectionLayer: row.detectionLayer,
+    lossMethod: row.lossMethod,
+    lossConfidence: row.lossConfidence,
+    lossOutputAmount: row.lossOutputAmount,
     detectedAt: row.detectedAt,
   };
 }

@@ -54,7 +54,7 @@ function NoWallet() {
             fontFamily: "var(--font-mono)",
             fontSize: 13,
             fontWeight: 500,
-            letterSpacing: "0.04em",
+            letterSpacing: 0,
             gap: 8,
           }}
         >

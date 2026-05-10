@@ -50,6 +50,10 @@ export interface SandwichRow {
   failed: boolean;
   isKnownBot: boolean;
   knownBotName: string | null;
+  detectionLayer: string;
+  lossMethod: string | null;
+  lossConfidence: string | null;
+  lossOutputAmount: string | null;
   detectedAt: string;
 }
 

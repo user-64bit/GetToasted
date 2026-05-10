@@ -1,56 +1,32 @@
-import { ConnectWalletButton } from "./connect-wallet-button";
+import { TerminalScanInput } from "./terminal-scan-input";
 
 export function CtaFooter() {
   return (
     <section
       style={{
-        padding: "160px 24px 128px",
+        padding: "96px 24px 112px",
         borderTop: "1px solid var(--border-subtle)",
       }}
     >
-      <div className="max-w-2xl mx-auto text-center">
+      <div className="mx-auto max-w-3xl">
+        <p className="text-label">Run the scan</p>
+        <h2 className="text-h1 mt-3" style={{ maxWidth: 680 }}>
+          The only useful verdict is the one tied to your wallet.
+        </h2>
         <p
+          className="mt-4"
           style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "clamp(24px, 3.2vw, 38px)",
-            fontWeight: 500,
-            color: "var(--text-primary)",
-            letterSpacing: "-0.01em",
-            lineHeight: 1.2,
+            maxWidth: 600,
+            fontFamily: "var(--font-sans)",
+            fontSize: 16,
+            lineHeight: 1.55,
+            color: "var(--text-secondary)",
           }}
         >
-          You&apos;ve been trading on Solana.
+          Paste an address. The scan is read-only and no transaction is signed.
         </p>
-        <p
-          className="mt-2"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "clamp(24px, 3.2vw, 38px)",
-            fontWeight: 500,
-            color: "var(--threat-red)",
-            letterSpacing: "-0.01em",
-            lineHeight: 1.2,
-          }}
-        >
-          Have you been attacked?
-        </p>
-
-        <div className="mt-12 inline-block">
-          <ConnectWalletButton
-            label="Connect Wallet — It's Free"
-            className="inline-flex items-center gt-btn"
-            style={{
-              background: "var(--accent)",
-              color: "var(--text-inverse)",
-              padding: "20px 32px",
-              borderRadius: 8,
-              fontFamily: "var(--font-mono)",
-              fontSize: 16,
-              fontWeight: 600,
-              letterSpacing: "0.04em",
-              gap: 10,
-            }}
-          />
+        <div className="mt-8">
+          <TerminalScanInput />
         </div>
       </div>
     </section>

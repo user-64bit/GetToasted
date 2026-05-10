@@ -11,15 +11,14 @@ export function CommandBar() {
           fontFamily: "var(--font-mono)",
           fontSize: 14,
           fontWeight: 500,
-          letterSpacing: "0.04em",
+          letterSpacing: 0,
         }}
       >
         Get<span style={{ color: "var(--threat-red)" }}>Toasted</span>
       </Link>
 
       <div className="ml-auto flex items-center gap-1">
-        <NavLink href="/docs" className="hidden md:block">Docs</NavLink>
-        <NavLink href="#" className="hidden md:block">GitHub</NavLink>
+        <NavLink href="/simulator" className="hidden md:block">Simulator</NavLink>
         <ConnectWalletButton
           className="gt-btn inline-flex items-center gap-1.5"
           style={{
@@ -30,7 +29,7 @@ export function CommandBar() {
             fontFamily: "var(--font-mono)",
             fontSize: 13,
             fontWeight: 500,
-            letterSpacing: "0.02em",
+            letterSpacing: 0,
           }}
         />
       </div>
@@ -57,6 +56,7 @@ function NavLink({
         color: "var(--text-secondary)",
         padding: "8px 12px",
         borderRadius: 6,
+        letterSpacing: 0,
       }}
     >
       {children}

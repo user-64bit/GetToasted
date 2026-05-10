@@ -1,5 +1,6 @@
 import { CleanWallet } from "./clean-wallet";
 import { DashboardSidebar } from "./dashboard-sidebar";
+import { DashboardTopbar } from "./dashboard-topbar";
 import { KpiRow } from "./kpi-row";
 import { LastScanned } from "./last-scanned";
 import { LossesChart } from "./losses-chart";
@@ -20,6 +21,7 @@ export function CompleteView({ wallet, data }: CompleteViewProps) {
       <DashboardSidebar wallet={wallet} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
+        <DashboardTopbar wallet={wallet} />
         {data.attacksFound === 0 ? (
           <CleanWallet
             wallet={wallet}

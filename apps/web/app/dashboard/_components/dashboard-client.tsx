@@ -168,7 +168,7 @@ function ScanFailed({ wallet, reason }: { wallet: string; reason: string }) {
               fontFamily: "var(--font-mono)",
               fontSize: 13,
               fontWeight: 500,
-              letterSpacing: "0.04em",
+              letterSpacing: 0,
               gap: 8,
             }}
           >
@@ -246,7 +246,7 @@ function NoScanYet({ wallet }: { wallet: string }) {
               fontFamily: "var(--font-mono)",
               fontSize: 13,
               fontWeight: 500,
-              letterSpacing: "0.04em",
+              letterSpacing: 0,
               gap: 8,
             }}
           >
@@ -280,7 +280,7 @@ function CenterMessage({ label, detail }: { label: string; detail?: string }) {
             fontFamily: "var(--font-mono)",
             fontSize: 13,
             color: "var(--text-secondary)",
-            letterSpacing: "0.08em",
+            letterSpacing: 0,
           }}
         >
           {label}

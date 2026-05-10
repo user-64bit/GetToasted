@@ -8,8 +8,8 @@ export const metadata = {
 
 export default function SimulatorPage() {
   return (
-    <main className="min-h-screen px-6 py-16 md:px-12 md:py-20">
-      <div className="max-w-2xl mx-auto">
+    <main className="min-h-screen px-4 py-10 md:px-8 md:py-14">
+      <div className="mx-auto max-w-6xl">
         <header className="mb-10">
           <p className="text-label">Tool · Pre-trade</p>
           <h1 className="text-h1 mt-2">Swap risk simulator</h1>

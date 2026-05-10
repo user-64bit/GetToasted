@@ -28,12 +28,22 @@ function truncateMint(mint: string): string {
 }
 
 export function rowToSandwich(row: SandwichRow): Sandwich {
+  const confidence = Number(row.confidence);
   return {
     id: row.id,
     detectedAt: row.blockTime,
     pool: row.dex,
     pair: pairLabel(row.inputMint, row.outputMint),
-    lossUsd: row.lossUsd ? parseFloat(row.lossUsd) : 0,
+    lossUsd: row.lossUsd ? parseFloat(row.lossUsd) : null,
+    lossOutputAmount: row.lossOutputAmount,
+    detectionLayer: row.detectionLayer,
+    lossMethod: row.lossMethod,
+    lossConfidence: row.lossConfidence ? parseFloat(row.lossConfidence) : null,
+    confidence: Number.isFinite(confidence) ? confidence : null,
+    jitoBundled: row.jitoBundled,
+    failed: row.failed,
+    isKnownBot: row.isKnownBot,
+    knownBotName: row.knownBotName,
     attacker: row.attacker,
     validator: row.validatorVote ?? undefined,
     txSignature: row.victimSig,
@@ -115,7 +125,7 @@ function buildMonthlySeries(
     const d = new Date(s.detectedAt);
     const key = `${d.getFullYear()}-${d.getMonth()}`;
     const bucket = byKey.get(key);
-    if (bucket) bucket.loss += s.lossUsd;
+    if (bucket) bucket.loss += s.lossUsd ?? 0;
   }
 
   return buckets.map((b) => ({

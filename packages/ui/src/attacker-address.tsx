@@ -6,13 +6,14 @@ import { cn, truncateAddress } from "./utils";
 
 export interface AttackerAddressProps {
   address: string;
+  label?: string | null;
   className?: string;
 }
 
-export function AttackerAddress({ address, className }: AttackerAddressProps) {
+export function AttackerAddress({ address, label, className }: AttackerAddressProps) {
   const [copied, setCopied] = useState(false);
   const botName = lookupBotName(address);
-  const display = botName ?? truncateAddress(address);
+  const display = label ?? botName ?? truncateAddress(address);
 
   const onCopy = async () => {
     try {
@@ -24,7 +25,7 @@ export function AttackerAddress({ address, className }: AttackerAddressProps) {
     }
   };
 
-  const baseColor = botName ? "var(--threat-red)" : "var(--text-primary)";
+  const baseColor = label || botName ? "var(--threat-red)" : "var(--text-primary)";
 
   return (
     <button
@@ -34,7 +35,7 @@ export function AttackerAddress({ address, className }: AttackerAddressProps) {
       className={cn("cursor-pointer transition-colors", className)}
       style={{
         fontFamily: "var(--font-mono)",
-        fontSize: 14,
+        fontSize: 13,
         color: copied ? "var(--safe-green)" : baseColor,
       }}
     >

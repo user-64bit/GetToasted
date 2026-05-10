@@ -75,13 +75,13 @@ export function TerminalScanInput() {
         className="gt-btn"
         style={{
           background: "var(--threat-red)",
-          color: "var(--text-primary)",
+          color: "var(--text-inverse)",
           padding: "10px 18px",
           borderRadius: 4,
           fontFamily: "var(--font-mono)",
           fontSize: 12,
           fontWeight: 500,
-          letterSpacing: "0.18em",
+          letterSpacing: 0,
         }}
       >
         SCAN

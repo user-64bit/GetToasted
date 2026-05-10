@@ -29,7 +29,7 @@ export function ThreatBadge({ level, label, className }: ThreatBadgeProps) {
         "inline-flex items-center gap-1.5 px-2 py-1 rounded text-label",
         className,
       )}
-      style={{ color, background: bg, fontSize: 11, letterSpacing: "0.1em" }}
+      style={{ color, background: bg, fontSize: 11, letterSpacing: 0 }}
     >
       {level === "high" && (
         <span
