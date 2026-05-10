@@ -23,7 +23,10 @@ apps/
     risk-analyzer/  → BullMQ: risk-score queue (cron, Jupiter quote)
     validator-refresh/ → BullMQ: validator-refresh queue (cron, RPC)
 packages/
-  core/         → detectSandwichesInSlot, scoring, constants — NO Node-only imports
+  core/         → Layered sandwich detector (L1-L4), loss methods, post-filters,
+                  bot registry — NO Node-only imports
+  runtime/      → Node-only runtime utils: block-expander (Helius),
+                  jito-bundle client, detection-enricher, redis keys, pino logger
   db/           → Drizzle schema + client (Neon postgres-js)
   schemas/      → Zod validators shared client+server
   helius/       → Typed Helius API client
@@ -32,6 +35,12 @@ packages/
   tsconfig/     → Shared tsconfig presets (base, node, nextjs)
   ui/           → Shared React component library (shadcn)
   eslint-config/ → Shared ESLint config
+tools/
+  detector-harness/ → Workspace package (@get-toasted/detector-harness)
+                      that imports from @get-toasted/core directly. CLI:
+                      validate-mined, mine-from-known-bots, validate-wallet,
+                      diagnose-slot, debug-miss, debug-extra. Validates
+                      production code, not a fork.
 ```
 
 ## Tech Stack
@@ -67,19 +76,23 @@ packages/
 | `risk-score` | cron via BullMQ scheduler | `apps/workers/risk-analyzer` |
 | `validator-refresh` | cron via BullMQ scheduler | `apps/workers/validator-refresh` |
 
-## Key TODOs (next to implement)
+## Validation strategy
 
-1. `heliusTxToParsedSwaps` — feed it real Helius fixture JSON from `packages/core/src/fixtures/`
-2. SIWS verify route — ed25519 + JWT in `apps/api/src/routes/auth/index.ts`
-3. BullMQ queue producer in `apps/api/src/routes/v1/wallets.ts` (POST scan)
-4. Risk-analyzer: Jupiter quote → lossUsd calculation
-5. Validator-refresh: Helius/RPC getVoteAccounts → validators table
-6. Web app: wallet adapter, shadcn, TanStack Query, SIWS flow
+- **Primary ground truth: Jito bundle membership.** Mined mechanically via
+  `pnpm harness mine-from-known-bots --bots <signer>`. Validation is
+  `pnpm harness validate-mined <jsonPath>` running production
+  `detectSandwichesForWalletSwaps` against each mined tuple.
+- **Sandwiched.me has NO per-victim-wallet route.** Don't waste time
+  trying to scrape it.
+- **Wide non-bundled (L4 statistical) sandwiches need manual spot-check.**
+  No automated ground truth exists for these.
+- See `DETECTOR.md` "Validation strategy" section for the full protocol.
 
-## Out of Scope for MVP
+## Out of Scope for v1
 
+- L5 cross-slot wide sandwich (deferred per algorithm spec §13)
+- Phoenix Eternal / spline-AMM perpetuals coverage (see `BACKLOG.md`)
 - JIT liquidity detection
-- Multi-slot blind sandwich detection
 - Stripe / payments UI
 - Public API key management UI
 - ClickHouse / Tinybird analytics
@@ -87,8 +100,14 @@ packages/
 
 ## Environment Variables
 
-All managed via Doppler. See `packages/env/src/index.ts` for the full typed schema.
+Production secrets via Doppler; local dev via `.env` (see `.env.example`).
+Full typed schema in `packages/env/src/index.ts`.
+
 Required: `DATABASE_URL`, `REDIS_URL`, `HELIUS_API_KEY`, `HELIUS_WEBHOOK_SECRET`, `JWT_SECRET`, `APP_URL`
+
+Operational tunables: `MAX_SCAN_SIGNATURES` (default 1000),
+`MAX_SCAN_SLOTS` (default 200), `MAX_SCAN_DURATION_MS` (default 60000 —
+bump for backfill scans).
 
 ## Deployment
 

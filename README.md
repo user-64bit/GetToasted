@@ -5,10 +5,10 @@
 Get Toasted is a SaaS that ingests a wallet's transaction history (via Helius), runs a typed sandwich-detection pipeline over each slot, prices the impact in USD using Jupiter quotes, and exposes the results via an API + dashboard. Real-time scans are driven by Helius webhooks; historical scans are paginated through BullMQ workers.
 
 - **Live**: https://gettoasted.fun
-- **Stage**: Hackathon MVP (5-week build, solo dev)
-- **Submission notes**: see [`SUBMISSION.md`](./SUBMISSION.md) for the validation methodology, 30/30 match rate, scope decisions, and demo flow.
-- **Detector internals**: see [`DETECTOR.md`](./DETECTOR.md).
-- **Open work**: see [`BACKLOG.md`](./BACKLOG.md).
+- **Detector internals**: see [`DETECTOR.md`](./DETECTOR.md) — layered classifier, loss methods, validation strategy.
+- **Validation**: 30/30 Jito-bundle ground-truth match rate. Reproducible via `pnpm harness validate-mined` — see [`tools/detector-harness/README.md`](./tools/detector-harness/README.md).
+- **Submission notes**: [`SUBMISSION.md`](./SUBMISSION.md).
+- **Open work**: [`BACKLOG.md`](./BACKLOG.md).
 
 ---
 

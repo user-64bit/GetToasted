@@ -41,34 +41,21 @@ because the program is not in `TRACKED_DEX_PROGRAM_IDS`.
 Trigger: user demand for perp coverage, or a credibly large share of
 sandwich volume migrating to spline AMMs.
 
-### CPMM reserves-inference accuracy — v1.1
+### Deterministic CPMM vault-account derivation — v1.1
 
-When the smoke test ran the production scanner against wallet
-`8UE2QGDJcpBp1PPjuCz3EsDtJn3wzSaPsmpVYXGRbzC7` at slot 362686298, the
-detection was correctly emitted at L1 confidence 1.00 with
-`loss_method=cpmm-reconstruction`, but `loss_output_amount=0` and
-`loss_usd=null`. Inspection of the persisted row shows
-`counterfactual_out_amt=7833217972882` while `victim_out_amt=25962124601544`
-— counterfactual < actual, which is impossible for a buy-side sandwich
-under x·y=k (front-run pushes token price up, so victim should get
-*less* than the counterfactual).
+The defensive fix has shipped (`reconstructCpmmLoss` now sanity-guards
+`counterfactual < actual` and falls through to `backrun-profit-proxy`,
+preventing the clamped-to-zero loss bug). What remains is the underlying
+heuristic in `packages/runtime/src/block-expander.ts`
+`inferPoolReservesFromTx`: it picks the "largest non-signer balance per
+mint" as the pool vault, which is wrong when a non-pool token account
+of the same mint is also present in the tx. The CPMM math then never
+runs (the sanity guard kicks in and routes to the proxy), so loss is
+correct but with `lossConfidence: 0.85` instead of `1.00`.
 
-Root cause: `inferPoolReservesFromTx` in `packages/runtime/src/block-expander.ts`
-picks the wrong vault account for one or both sides of the pair on this
-Raydium AMM v4 swap. The "largest non-signer balance per mint" heuristic
-appears to be confused by a non-pool token account also present in the
-tx. The CPMM math then runs against bogus reserves and produces an
-inverted counterfactual; the dispatcher clamps the negative loss to 0.
-
-**Why this didn't break detection:** the sandwich is still classified
-correctly at L1 (Jito-bundle membership is the layer signal, not
-reserves). The loss column is just wrong.
-
-**v1.1 plan:**
-- Add a sanity check in `reconstructCpmmLoss`: if `counterfactual < actual`,
-  treat as a reserves-inference failure (return `lossConfidence: 0`) so
-  the dispatcher falls through to `backrun-profit-proxy` which uses the
-  bot's realized profit instead.
-- Longer term: identify pool vault accounts deterministically via the
-  DEX's program-specific account layout (Raydium AMM v4: vault
-  addresses are derivable from the AMM account), not by balance heuristic.
+**v1.1 work:** identify pool vault accounts deterministically via each
+DEX's program-specific account layout. Raydium AMM v4 vaults are
+derivable from the AMM account; Orca / Meteora have similar program-
+defined relationships. This restores `cpmm-reconstruction` (confidence
+1.00) on the affected swaps. Trigger when the proxy/CPMM ratio in
+production rows justifies the work.

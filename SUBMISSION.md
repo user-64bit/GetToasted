@@ -20,14 +20,13 @@ into the dashboard → KPI row + table on completion.
 **100% match rate (30/30) on Jito-bundle-confirmed sandwiches**, plus
 **3/3 wallets pass the API → BullMQ → worker → DB → SSE end-to-end smoke
 test.** Full per-wallet table in
-[`research/validation-report.md`](./research/validation-report.md);
-sign-off in [`PHASE_A_DONE.md`](./PHASE_A_DONE.md).
+[`research/validation-report.md`](./research/validation-report.md).
 
 | Track | Result | Detail |
 |---|---|---|
 | Detector recall (offline) | **30/30 = 100%** | `pnpm harness validate-mined` against B91-mined Jito bundles |
 | End-to-end smoke (production scan path) | **3/3 wallets** | API → worker → Postgres rows with detection_layer, confidence, loss_method, loss_confidence populated |
-| Unit tests | **52 / 52 pass** | `@get-toasted/core` (incl. new CPMM fallthrough test) |
+| Unit tests | **79 / 79 pass** | `@get-toasted/core` (52), `@get-toasted/runtime` (13), `@get-toasted/helius` (14) |
 
 The 3 verified end-to-end smoke wallets — paste any of these on the
 landing page in the demo:
@@ -185,19 +184,16 @@ Steps 1–2 reproduce the 30/30 result. Step 3 reproduces the demo flow.
 
 ## Reading the artifacts
 
-- [`AUDIT.md`](./AUDIT.md) — entry-state assessment of the codebase
-  before this pass.
+- [`README.md`](./README.md) — setup, prerequisites, repo layout, API
+  surface, deployment.
 - [`DETECTOR.md`](./DETECTOR.md) — detector architecture, layer
-  semantics, validation strategy, and operational notes.
-- [`BACKLOG.md`](./BACKLOG.md) — Phoenix Eternal v2, CPMM reserves
-  inference v1.1, related deferrals.
-- [`PHASE_A_AUDIT.md`](./PHASE_A_AUDIT.md) /
-  [`PHASE_A_DONE.md`](./PHASE_A_DONE.md) — Phase A gate sign-off
-  (algorithm correctness verified end-to-end).
-- [`PHASE_B_AUDIT.md`](./PHASE_B_AUDIT.md) — Phase B audit + the
-  demo-blocking issues found and fixed.
-- `research/algorithm-decision.md` — original algorithm spec.
-- `research/validation-report.md` — full validation report.
+  semantics, validation strategy, operational notes, bug-fix log.
+- [`BACKLOG.md`](./BACKLOG.md) — open work (Phoenix Eternal v2,
+  deterministic CPMM vault derivation v1.1).
+- [`research/validation-report.md`](./research/validation-report.md) —
+  full per-wallet validation table.
+- [`tools/detector-harness/README.md`](./tools/detector-harness/README.md) —
+  the validation harness CLI reference.
 - `research/mined-victims/` — Jito-mined ground truth, JSON.
 - `research/validation-runs/` — every `validate-mined` /
   `validate-wallet` run output, JSON.
