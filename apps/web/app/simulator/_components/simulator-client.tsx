@@ -111,12 +111,13 @@ export function SimulatorClient() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)] lg:items-start">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)] lg:items-stretch">
       <section
         style={{
           background: "var(--bg-surface)",
           border: "1px solid var(--border-subtle)",
           borderRadius: "var(--radius-panel)",
+          height: "100%",
           overflow: "hidden",
         }}
       >
@@ -367,6 +368,7 @@ function VerdictPanel({
               : "var(--border-subtle)"
         }`,
         borderRadius: "var(--radius-panel)",
+        height: "100%",
         overflow: "hidden",
       }}
     >

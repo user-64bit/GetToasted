@@ -29,7 +29,7 @@ function Hero() {
       }}
     >
       <div
-        className="reveal-stagger relative mx-auto grid max-w-6xl gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(440px,1.08fr)] lg:items-end"
+        className="reveal-stagger relative mx-auto grid max-w-6xl gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(440px,1.08fr)] lg:items-start"
         style={{ minHeight: "calc(100svh - 160px)" }}
       >
         <div>
