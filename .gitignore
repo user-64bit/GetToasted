@@ -37,3 +37,14 @@ yarn-error.log*
 .DS_Store
 *.pem
 .claude
+
+# TypeScript incremental build cache — regenerated on every `tsc` run.
+*.tsbuildinfo
+
+# Detector regression fixtures — large (~500MB) full-block JSON snapshots
+# authored on demand by the legacy harness commands (bootstrap-a-guard,
+# bootstrap-arbitrage-negatives, analyze-wallet --write-fixture).
+# Production code does NOT load these. Re-mine via the harness CLI when
+# you need them locally; production validation uses the Jito-mining flow
+# in research/mined-victims/ instead. See SUBMISSION.md and DETECTOR.md.
+tests/detector/fixtures/

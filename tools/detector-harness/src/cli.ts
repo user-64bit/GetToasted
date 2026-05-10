@@ -974,6 +974,29 @@ async function validateFixtures(): Promise<void> {
     { label: "edge-case", dir: "tests/detector/fixtures/edge-cases" },
   ];
 
+  // Fixtures are gitignored (full-block JSON snapshots, ~500 MB total).
+  // If none are present locally, the user is most likely missing them
+  // entirely rather than running with an empty corpus on purpose. Tell
+  // them how to regenerate before producing a misleading 0/0 report.
+  const fixtureCounts = await Promise.all(
+    groups.map(async (g) => (await fixtureFiles(g.dir)).length),
+  );
+  if (fixtureCounts.every((n) => n === 0)) {
+    console.log(
+      [
+        "no fixtures found under tests/detector/fixtures/",
+        "the corpus is gitignored — regenerate locally via:",
+        "  pnpm harness bootstrap-a-guard <a-guard filtered_sandwitches.json>",
+        "  pnpm harness bootstrap-arbitrage-negatives <quote_mint>",
+        "  pnpm harness analyze <signature> --write-fixture",
+        "or use the Jito-mining flow that supersedes this corpus:",
+        "  pnpm harness mine-from-known-bots --bots <signer> --limit 30",
+        "  pnpm harness validate-mined research/mined-victims/<file>.json",
+      ].join("\n"),
+    );
+    return;
+  }
+
   const rows: Array<{
     name: string;
     kind: string;
