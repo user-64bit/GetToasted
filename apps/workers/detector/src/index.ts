@@ -188,5 +188,11 @@ const shutdown = async (signal: string) => {
 };
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("unhandledRejection", (reason) => {
+  log.error({ err: reason }, "detector: unhandledRejection");
+});
+process.on("uncaughtException", (err) => {
+  log.error({ err }, "detector: uncaughtException");
+});
 
 log.info("detector: worker up — queue: scan-realtime");

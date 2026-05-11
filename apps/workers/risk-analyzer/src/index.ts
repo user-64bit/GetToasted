@@ -74,5 +74,11 @@ const shutdown = async (signal: string) => {
 };
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("unhandledRejection", (reason) => {
+  log.error({ err: reason }, "risk-analyzer: unhandledRejection");
+});
+process.on("uncaughtException", (err) => {
+  log.error({ err }, "risk-analyzer: uncaughtException");
+});
 
 log.info("risk-analyzer: worker up — queue: risk-score");

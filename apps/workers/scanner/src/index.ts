@@ -453,5 +453,11 @@ const shutdown = async (signal: string) => {
 
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("unhandledRejection", (reason) => {
+  log.error({ err: reason }, "scanner: unhandledRejection");
+});
+process.on("uncaughtException", (err) => {
+  log.error({ err }, "scanner: uncaughtException");
+});
 
 log.info("scanner: worker up — queue: scan-historical");

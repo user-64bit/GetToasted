@@ -162,5 +162,11 @@ const shutdown = async (signal: string) => {
 };
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("unhandledRejection", (reason) => {
+  log.error({ err: reason }, "validator-refresh: unhandledRejection");
+});
+process.on("uncaughtException", (err) => {
+  log.error({ err }, "validator-refresh: uncaughtException");
+});
 
 log.info("validator-refresh: worker up — queue: validator-refresh");
