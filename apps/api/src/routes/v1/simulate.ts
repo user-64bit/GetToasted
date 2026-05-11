@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { SimulateRequestSchema } from "@get-toasted/schemas";
 import { Pools, Sandwiches } from "@get-toasted/db";
 import { logger } from "@get-toasted/runtime";
-import { db, priceClient } from "../../lib/connections.js";
+import { db, decimalsCache, priceClient } from "../../lib/connections.js";
 
 const JUPITER_QUOTE_URL = "https://lite-api.jup.ag/swap/v1/quote";
 const SIMULATE_TIMEOUT_MS = 8_000;
@@ -51,8 +51,14 @@ simulate.post("/", zValidator("json", SimulateRequestSchema), async (c) => {
         ])
       : [null, { count: 0, avgLossUsd: null, lastSeen: null }];
 
-    const tokenPriceUsd = await priceClient.getTokenPriceUsd(inputMint, new Date());
-    const amountFloat = Number(amount) / 1e9;
+    const [tokenPriceUsd, inputDecimals] = await Promise.all([
+      priceClient.getTokenPriceUsd(inputMint, new Date()),
+      decimalsCache.getDecimals(inputMint),
+    ]);
+    // Fall back to 9 (SOL convention) only when the RPC fails entirely;
+    // a wrong decimals here scales amountUsd by 10^Δ and breaks the
+    // verdict branches.
+    const amountFloat = Number(amount) / Math.pow(10, inputDecimals ?? 9);
     const amountUsd = tokenPriceUsd ? amountFloat * tokenPriceUsd : null;
 
     const avgLossUsd = poolStats.avgLossUsd ?? 0;
