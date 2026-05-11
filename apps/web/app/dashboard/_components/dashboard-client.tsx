@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-// useMe is no longer needed: SIWS gating was removed for the v1 demo
-// scan flow. Re-import when SIWS is re-enabled in v2.
 import {
   useStartScan,
   useWalletSandwiches,
