@@ -105,7 +105,7 @@ function HeroLeft() {
       </p>
 
       <dl className="hero-figures mt-10">
-        <HeroFigure label="Extracted on Solana" sub="16-month sample" value="$370M+" />
+        <HeroFigure label="Extracted on Solana" sub="Helius 2024 MEV report" value="$370M+" />
         <HeroFigure label="Detection layers" sub="L1 mechanical → L4 statistical" value="4" />
         <HeroFigure label="Ground-truth recall" sub="Jito-bundle confirmed" value="30/30" />
       </dl>
