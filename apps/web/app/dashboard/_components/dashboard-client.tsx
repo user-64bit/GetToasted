@@ -270,7 +270,11 @@ function NoScanYet({ wallet }: { wallet: string }) {
     startScan.mutate();
   }, [startScan]);
 
-  if (startScan.isError) {
+  // SCAN_LOCK_HELD (409) means a worker is already processing this
+  // wallet — that's "in progress", not a failure. Fall through to the
+  // queued view; the summary query will flip to scanning/complete on
+  // its next 2s poll.
+  if (startScan.isError && !isScanLockHeld(startScan.error)) {
     return (
       <ScanFailed wallet={wallet} reason={errorMessage(startScan.error)} />
     );
@@ -413,4 +417,8 @@ function errorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
   if (err instanceof Error) return err.message;
   return "Unknown error";
+}
+
+function isScanLockHeld(err: unknown): boolean {
+  return err instanceof ApiError && err.code === "SCAN_LOCK_HELD";
 }
