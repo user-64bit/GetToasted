@@ -16,6 +16,7 @@
         "HELIUS_API_KEY",
         "HELIUS_RPC_URL",
         "APP_URL",
+        "API_BASE_URL",
         "PORT",
         "HELIUS_WEBHOOK_SECRET",
         "JWT_SECRET",
