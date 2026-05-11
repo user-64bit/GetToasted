@@ -19,43 +19,77 @@ const DEFAULT_OUTPUT = KNOWN_MINTS[1]!; // USDC
 const SAMPLE_AMOUNT = "1";
 const SAMPLE_WALLET = "8UE2QGDJcpBp1PPjuCz3EsDtJn3wzSaPsmpVYXGRbzC7";
 
+/**
+ * Verdict copy. `title` accepts inline JSX so the emotional pivot word
+ * can render as Fraunces italic — the editorial inflection inside the
+ * tool register. The body stays in body sans, the label stays mono.
+ */
 const VERDICT: Record<
   SimulateVerdict | "IDLE" | "LOADING" | "ERROR",
-  { label: string; title: string; body: string; tone: "safe" | "amber" | "threat" | "muted" }
+  {
+    label: string;
+    title: React.ReactNode;
+    body: string;
+    tone: "safe" | "amber" | "threat" | "muted";
+  }
 > = {
   IDLE: {
     label: "Awaiting quote",
-    title: "Enter a route to classify risk.",
+    title: (
+      <>
+        Enter a route to <em>classify</em> risk.
+      </>
+    ),
     body: "The verdict will update after Jupiter returns a pool route and GetToasted checks recent sandwich activity.",
     tone: "muted",
   },
   LOADING: {
     label: "Simulating",
-    title: "Computing route exposure.",
+    title: (
+      <>
+        Computing route <em>exposure.</em>
+      </>
+    ),
     body: "Fetching quote, pool, recent detections, and estimated MEV exposure.",
     tone: "amber",
   },
   ERROR: {
     label: "Quote failed",
-    title: "The route could not be simulated.",
+    title: (
+      <>
+        The route could not be <em>simulated.</em>
+      </>
+    ),
     body: "Check the wallet, mint addresses, and amount, then try again.",
     tone: "threat",
   },
   PROCEED: {
     label: "Proceed",
-    title: "No recent sandwich pressure on this pool.",
+    title: (
+      <>
+        Pool is <em>quiet.</em>
+      </>
+    ),
     body: "The route has no detected sandwiches in the 7-day pool window. Still review slippage before signing.",
     tone: "safe",
   },
   PROCEED_WITH_CAUTION: {
     label: "Caution",
-    title: "Some sandwich history exists.",
+    title: (
+      <>
+        Some sandwich <em>history</em> exists.
+      </>
+    ),
     body: "The pool has recent detections or measurable route impact. Consider splitting size or tightening execution.",
     tone: "amber",
   },
   USE_MEV_PROTECTED_ROUTE: {
     label: "Use protected route",
-    title: "This route is exposed.",
+    title: (
+      <>
+        This route is <em>exposed.</em>
+      </>
+    ),
     body: "Recent pool activity and trade size cross the risk threshold. Use protected execution or split the order.",
     tone: "threat",
   },
@@ -154,10 +188,10 @@ export function SimulatorClient() {
               type="button"
               onClick={swap}
               aria-label="Swap input and output mints"
-              className="mt-0 sm:mt-8"
+              className="mt-0 sm:mt-8 gt-btn"
               style={miniIconButtonStyle}
             >
-              v
+              ⇅
             </button>
             <MintField label="To" value={outputMint} onChange={setOutputMint} info={outputInfo} />
           </div>
@@ -197,16 +231,18 @@ export function SimulatorClient() {
               background: "var(--accent)",
               color: "var(--text-inverse)",
               border: "1px solid var(--accent)",
-              padding: "13px 16px",
-              borderRadius: "var(--radius-control)",
+              padding: "14px 18px",
+              borderRadius: 2,
               fontFamily: "var(--font-mono)",
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 600,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
               opacity:
                 sim.isPending || !effectiveWallet || !atomicAmount ? 0.55 : 1,
             }}
           >
-            {sim.isPending ? "Simulating route..." : "Simulate swap ->"}
+            {sim.isPending ? "Simulating route…" : "Simulate swap →"}
           </button>
 
           {!effectiveWallet ? (
@@ -372,31 +408,41 @@ function VerdictPanel({
         overflow: "hidden",
       }}
     >
-      <header style={{ padding: 18, borderBottom: "1px solid var(--border-subtle)" }}>
+      <header
+        style={{ padding: 24, borderBottom: "1px solid var(--border-subtle)" }}
+      >
         <span
           style={{
             display: "inline-flex",
             border: `1px solid ${toneBorder(verdict.tone)}`,
             background: toneBg(verdict.tone),
             color: toneColor(verdict.tone),
-            borderRadius: "var(--radius-chip)",
-            padding: "4px 7px",
+            borderRadius: 2,
+            padding: "5px 10px",
             fontFamily: "var(--font-mono)",
-            fontSize: 11,
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: "0.15em",
             textTransform: "uppercase",
           }}
         >
           {verdict.label}
         </span>
-        <h2 className="text-h1 mt-4">{verdict.title}</h2>
-        <p
-          className="mt-3"
+        <h2
+          className="text-h1 verdict-h1"
           style={{
-            fontFamily: "var(--font-sans)",
-            fontSize: 15,
-            lineHeight: 1.55,
-            color: "var(--text-secondary)",
+            marginTop: 18,
+            color: "var(--text-primary)",
+            // Per-verdict em color override consumed by the .verdict-h1 em
+            // selector in globals.css. Defaults to lime via the .text-h1 rule.
+            ["--em-color" as string]: toneColor(verdict.tone),
           }}
+        >
+          {verdict.title}
+        </h2>
+        <p
+          className="text-body-sm"
+          style={{ marginTop: 14, maxWidth: 540 }}
         >
           {error ?? verdict.body}
         </p>
@@ -442,87 +488,93 @@ function JitoCta() {
       className="mt-6"
       style={{
         position: "relative",
-        background: "var(--threat-red-dim)",
+        background: "var(--bg-base)",
         border: "1px solid var(--threat-red-border)",
-        borderRadius: "var(--radius-panel)",
-        padding: 16,
-        overflow: "hidden",
+        borderTop: "1px solid var(--threat-red)",
+        padding: "20px 22px 22px",
       }}
     >
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(70% 100% at 100% 0%, rgba(255, 71, 71, 0.18), transparent 70%)",
-          pointerEvents: "none",
-        }}
-      />
-      <div style={{ position: "relative" }}>
-        <div className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="inline-block rounded-full"
-            style={{
-              width: 7,
-              height: 7,
-              background: "var(--threat-red)",
-              animation: "threat-pulse 2s infinite",
-              boxShadow: "0 0 8px var(--threat-red)",
-            }}
-          />
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              color: "var(--threat-red)",
-              textTransform: "uppercase",
-              letterSpacing: 0,
-            }}
-          >
-            Recommended action
-          </span>
-        </div>
-        <button
-          type="button"
-          className="gt-btn mt-3"
+      <div className="flex items-center gap-3" style={{ marginBottom: 14 }}>
+        <span
+          aria-hidden
           style={{
-            width: "100%",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
+            display: "inline-block",
+            width: 36,
+            height: 1,
             background: "var(--threat-red)",
-            color: "var(--text-inverse)",
-            border: "none",
-            borderRadius: "var(--radius-control)",
-            padding: "16px 18px",
-            fontFamily: "var(--font-mono)",
-            fontSize: 15,
-            fontWeight: 700,
-            letterSpacing: 0,
-            boxShadow: "0 6px 20px rgba(255, 71, 71, 0.18)",
           }}
-        >
-          <span>Execute with Jito Protection</span>
-          <span aria-hidden style={{ fontSize: 18 }}>
-            →
-          </span>
-        </button>
-        <p
-          className="mt-3"
+        />
+        <span
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: "var(--text-tertiary)",
-            letterSpacing: 0,
+            fontSize: 10,
+            fontWeight: 600,
+            color: "var(--threat-red)",
+            textTransform: "uppercase",
+            letterSpacing: "0.2em",
           }}
         >
-          Routes through a Jito-bundled relayer · refuses to land if
-          front-run · no transaction is signed yet
-        </p>
+          → Recommended action
+        </span>
       </div>
+
+      <h3
+        style={{
+          fontFamily: "var(--font-display-family)",
+          fontSize: "clamp(22px, 2.4vw, 30px)",
+          fontWeight: 400,
+          letterSpacing: "-0.02em",
+          color: "var(--text-primary)",
+          marginBottom: 16,
+          lineHeight: 1.15,
+        }}
+      >
+        Route through a{" "}
+        <em style={{ fontStyle: "italic", color: "var(--threat-red)" }}>
+          Jito-protected
+        </em>{" "}
+        relay.
+      </h3>
+
+      <button
+        type="button"
+        className="gt-btn"
+        style={{
+          width: "100%",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          background: "var(--threat-red)",
+          color: "var(--text-inverse)",
+          border: "none",
+          borderRadius: 2,
+          padding: "16px 20px",
+          fontFamily: "var(--font-mono)",
+          fontSize: 13,
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+        }}
+      >
+        <span>Execute with Jito Protection</span>
+        <span aria-hidden style={{ fontSize: 16 }}>
+          →
+        </span>
+      </button>
+      <p
+        className="mt-3"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          color: "var(--text-tertiary)",
+          letterSpacing: "0.05em",
+          lineHeight: 1.5,
+        }}
+      >
+        Routes through a Jito-bundled relayer. Refuses to land if front-run.
+        No transaction is signed yet.
+      </p>
     </div>
   );
 }

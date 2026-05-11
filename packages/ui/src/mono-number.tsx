@@ -14,6 +14,11 @@ export interface MonoNumberProps {
   color?: MonoNumberColor;
   durationMs?: number;
   className?: string;
+  /** Override the default mono font — used by editorial-register callouts
+   * that want Fraunces serif numerals (e.g., the dashboard hero loss). */
+  fontFamily?: string;
+  fontWeight?: number;
+  letterSpacing?: string;
 }
 
 const colorFor: Record<MonoNumberColor, string> = {
@@ -39,6 +44,9 @@ export function MonoNumber({
   color = "default",
   durationMs = 520,
   className,
+  fontFamily = "var(--font-mono)",
+  fontWeight,
+  letterSpacing,
 }: MonoNumberProps) {
   const elRef = useRef<HTMLSpanElement | null>(null);
   // Holds the latest *numeric* value being shown — used as the from-point on prop change.
@@ -81,9 +89,11 @@ export function MonoNumber({
       ref={elRef}
       className={cn(className)}
       style={{
-        fontFamily: "var(--font-mono)",
+        fontFamily,
         color: colorFor[color],
         fontVariantNumeric: "tabular-nums",
+        fontWeight,
+        letterSpacing,
       }}
     >
       {prefix}

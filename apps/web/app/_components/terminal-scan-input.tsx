@@ -4,13 +4,18 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 
-export function TerminalScanInput() {
+interface TerminalScanInputProps {
+  ctaLabel?: string;
+}
+
+export function TerminalScanInput({ ctaLabel = "Scan →" }: TerminalScanInputProps) {
   const router = useRouter();
   const { publicKey, connected } = useWallet();
   const [manualValue, setManualValue] = useState<string | null>(null);
 
   const value =
     manualValue ?? (connected && publicKey ? publicKey.toBase58() : "");
+  const empty = value.trim().length === 0;
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -22,16 +27,17 @@ export function TerminalScanInput() {
   return (
     <form
       onSubmit={onSubmit}
-      className="terminal-input flex items-center w-full"
-      style={{ paddingLeft: 16, paddingRight: 6, paddingTop: 6, paddingBottom: 6 }}
+      className="scan-input-panel-frame w-full"
+      style={{ paddingLeft: 14, paddingRight: 6, paddingTop: 6, paddingBottom: 6 }}
     >
       <span
         aria-hidden
         style={{
           fontFamily: "var(--font-mono)",
-          color: "var(--safe-green)",
-          fontSize: 16,
+          color: "var(--accent)",
+          fontSize: 14,
           marginRight: 12,
+          letterSpacing: 0,
         }}
       >
         {">"}
@@ -47,20 +53,21 @@ export function TerminalScanInput() {
         className="flex-1 min-w-0"
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 15,
+          fontSize: 14,
           background: "transparent",
           color: "var(--text-primary)",
-          padding: "10px 0",
+          padding: "12px 0",
+          letterSpacing: 0,
         }}
         aria-label="Solana wallet address"
       />
-      {value.length === 0 && (
+      {empty && (
         <span
           aria-hidden
           className="hidden sm:inline"
           style={{
             fontFamily: "var(--font-mono)",
-            color: "var(--safe-green)",
+            color: "var(--accent)",
             fontSize: 14,
             marginRight: 12,
             animation: "terminal-blink 1.1s steps(2, start) infinite",
@@ -71,20 +78,21 @@ export function TerminalScanInput() {
       )}
       <button
         type="submit"
-        disabled={value.trim().length === 0}
+        disabled={empty}
         className="gt-btn"
         style={{
-          background: "var(--threat-red)",
+          background: "var(--accent)",
           color: "var(--text-inverse)",
-          padding: "10px 18px",
-          borderRadius: 4,
+          padding: "11px 18px",
+          borderRadius: 2,
           fontFamily: "var(--font-mono)",
           fontSize: 12,
-          fontWeight: 500,
-          letterSpacing: 0,
+          fontWeight: 600,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
         }}
       >
-        SCAN
+        {ctaLabel}
       </button>
     </form>
   );

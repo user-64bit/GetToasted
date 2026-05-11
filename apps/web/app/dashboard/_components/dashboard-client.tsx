@@ -167,16 +167,16 @@ function ScanFailed({ wallet, reason }: { wallet: string; reason: string }) {
             </span>
           </header>
 
-          <div style={{ padding: 22 }}>
-            <h1 className="text-h2">{headline}</h1>
+          <div style={{ padding: 24 }}>
+            <h1
+              className="text-h1"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {headline}
+            </h1>
             <p
-              className="mt-3"
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: 14,
-                lineHeight: 1.6,
-                color: "var(--text-secondary)",
-              }}
+              className="text-body-sm"
+              style={{ marginTop: 14 }}
             >
               {detail}
             </p>
@@ -281,17 +281,21 @@ function NoScanYet({ wallet }: { wallet: string }) {
       <DashboardTopbar wallet={wallet} />
       <main className="px-5 py-12 md:px-10 md:py-16">
         <div className="mx-auto" style={{ maxWidth: 720 }}>
-          <p className="text-label">Dashboard / queued</p>
-          <h1 className="text-h1 mt-3">Booting forensic scan…</h1>
           <p
-            className="mt-3"
-            style={{
-              maxWidth: 560,
-              fontFamily: "var(--font-sans)",
-              fontSize: 15,
-              lineHeight: 1.55,
-              color: "var(--text-secondary)",
-            }}
+            className="text-kicker"
+            style={{ marginBottom: 16, color: "var(--accent)" }}
+          >
+            § DASHBOARD / QUEUED
+          </p>
+          <h1
+            className="text-h1"
+            style={{ color: "var(--text-primary)", marginBottom: 12 }}
+          >
+            Booting <em>forensic scan…</em>
+          </h1>
+          <p
+            className="text-body-sm"
+            style={{ maxWidth: 560 }}
           >
             Allocating a worker on the queue. The first batch lands in a few
             seconds.
@@ -318,14 +322,15 @@ function StageRailTeaser() {
       }}
     >
       <div className="flex items-center gap-2 mb-3">
-        <span className="gt-scan-pulse-dot" aria-hidden />
+        <span className="gt-scan-pulse-dot brand" aria-hidden />
         <span
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: 11,
-            color: "var(--accent-strong)",
+            color: "var(--accent)",
             textTransform: "uppercase",
-            letterSpacing: 0,
+            letterSpacing: "0.15em",
+            fontWeight: 600,
           }}
         >
           Waiting for worker
@@ -349,8 +354,9 @@ function StageRailTeaser() {
               background:
                 i === 0 ? "var(--bg-overlay)" : "var(--bg-field)",
               color:
-                i === 0 ? "var(--accent-strong)" : "var(--text-muted)",
+                i === 0 ? "var(--accent)" : "var(--text-muted)",
               textTransform: "uppercase",
+              letterSpacing: "0.1em",
             }}
             className={i === 0 ? "gt-stage-active" : undefined}
           >

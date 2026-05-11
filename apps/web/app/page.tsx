@@ -1,7 +1,8 @@
 import { CommandBar } from "./_components/command-bar";
-import { CtaFooter } from "./_components/cta-footer";
+import { PullQuote } from "./_components/pull-quote";
 import { SampleScan } from "./_components/sample-scan";
-import { TerminalScanInput } from "./_components/terminal-scan-input";
+import { ScanInputPanel } from "./_components/scan-input-panel";
+import { SectionMarker } from "./_components/section-marker";
 
 export default function Home() {
   return (
@@ -9,8 +10,11 @@ export default function Home() {
       <CommandBar />
       <main>
         <Hero />
-        <EvidenceBand />
-        <CtaFooter />
+        <MethodologySection />
+        <BridgeQuote />
+        <SampleSection />
+        <RunScanSection />
+        <Footer />
       </main>
     </>
   );
@@ -19,104 +23,195 @@ export default function Home() {
 function Hero() {
   return (
     <section
-      className="hero-grid relative overflow-hidden"
       style={{
-        minHeight: "100svh",
-        paddingTop: 112,
-        paddingBottom: 48,
-        paddingLeft: 24,
-        paddingRight: 24,
+        position: "relative",
+        padding: "80px 24px 56px",
+        borderBottom: "1px solid var(--border-subtle)",
+        overflow: "hidden",
       }}
     >
       <div
-        className="reveal-stagger relative mx-auto grid max-w-6xl gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(440px,1.08fr)] lg:items-start"
-        style={{ minHeight: "calc(100svh - 160px)" }}
+        className="mx-auto"
+        style={{ maxWidth: 1280, position: "relative", zIndex: 2 }}
       >
-        <div>
-          <p className="text-label">Forensic intelligence / Solana MEV</p>
-
-          <h1 className="text-display mt-4" style={{ maxWidth: 760 }}>
-            Every sandwich attack on your wallet, exposed.
-          </h1>
-
-          <p
-            className="mt-6"
+        <div
+          className="flex items-center"
+          style={{
+            gap: 16,
+            marginBottom: 28,
+            color: "var(--accent)",
+          }}
+        >
+          <span
+            aria-hidden
             style={{
-              fontFamily: "var(--font-sans)",
-              fontSize: 18,
-              color: "var(--text-secondary)",
-              lineHeight: 1.55,
-              maxWidth: 560,
+              display: "inline-block",
+              width: 48,
+              height: 1,
+              background: "var(--accent)",
+            }}
+          />
+          <span className="text-kicker">Field Guide / The Anatomy of MEV</span>
+          <span
+            style={{
+              padding: "4px 10px",
+              border: "1px solid var(--accent)",
+              borderRadius: 999,
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--accent)",
+              fontWeight: 500,
             }}
           >
-            Paste a Solana address and get a forensic report: attacker,
-            validator, pool, confidence layer, and USD extracted.
-          </p>
-
-          <div className="mt-10 w-full" style={{ maxWidth: 680 }}>
-            <TerminalScanInput />
-          </div>
-
-          <div
-            className="mt-5 grid grid-cols-3 gap-px"
-            style={{
-              maxWidth: 680,
-              background: "var(--border-subtle)",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--radius-panel)",
-              overflow: "hidden",
-            }}
-          >
-            <HeroStat label="Detection layers" value="L1-L4" />
-            <HeroStat label="Demo recall" value="30/30" />
-            <HeroStat label="Signing" value="Never" />
-          </div>
+            Issue 01
+          </span>
         </div>
 
-        <SampleScan />
+        <h1 className="text-display" style={{ marginBottom: 32 }}>
+          Every sandwich attack
+          <br />
+          on your wallet, <em>exposed.</em>
+        </h1>
+
+        <div
+          className="hero-grid-cols"
+          style={{
+            display: "grid",
+            gap: 64,
+            paddingTop: 40,
+            borderTop: "1px solid var(--border-subtle)",
+            alignItems: "start",
+          }}
+        >
+          <HeroLeft />
+          <HeroRight />
+        </div>
       </div>
     </section>
   );
 }
 
-function HeroStat({ label, value }: { label: string; value: string }) {
+function HeroLeft() {
   return (
-    <div style={{ background: "var(--bg-surface)", padding: "12px 14px" }}>
-      <p className="text-label">{label}</p>
-      <p
-        className="mt-1"
+    <div className="hero-deck-col">
+      <p className="text-deck" style={{ maxWidth: 640 }}>
+        Three transactions, one slot, one pool. A bot pays the validator. Your
+        swap arrives in the middle &mdash;{" "}
+        <strong>squeezed between two strangers who took your money</strong>{" "}
+        before you knew you&apos;d lost it. GetToasted scans your wallet and
+        quantifies the bill.
+      </p>
+
+      <dl className="hero-figures mt-10">
+        <HeroFigure label="Extracted on Solana" sub="16-month sample" value="$370M+" />
+        <HeroFigure label="Detection layers" sub="L1 mechanical → L4 statistical" value="4" />
+        <HeroFigure label="Ground-truth recall" sub="Jito-bundle confirmed" value="30/30" />
+      </dl>
+    </div>
+  );
+}
+
+function HeroFigure({
+  label,
+  sub,
+  value,
+}: {
+  label: string;
+  sub: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <div
         style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 18,
+          fontFamily: "var(--font-display-family)",
+          fontSize: "clamp(28px, 3.4vw, 40px)",
+          fontWeight: 400,
+          letterSpacing: "-0.02em",
           color: "var(--text-primary)",
-          fontVariantNumeric: "tabular-nums",
+          lineHeight: 1,
+          marginBottom: 10,
         }}
       >
         {value}
+      </div>
+      <p
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          color: "var(--text-secondary)",
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 10,
+          color: "var(--text-tertiary)",
+          letterSpacing: "0.05em",
+          marginTop: 4,
+        }}
+      >
+        {sub}
       </p>
     </div>
   );
 }
 
-function EvidenceBand() {
-  const layers: { layer: string; tone: "threat" | "amber"; title: string; body: string }[] = [
+function HeroRight() {
+  return (
+    <ScanInputPanel
+      num="00"
+      label="Begin scan"
+      title={
+        <>
+          Paste an address.<br />
+          Read the verdict.
+        </>
+      }
+      helper={
+        <>
+          The scan is read-only. We never request a signature, never broadcast
+          a transaction, and never write to your wallet.
+        </>
+      }
+    />
+  );
+}
+
+/* ============================================================
+   § 01 — Methodology
+   ============================================================ */
+function MethodologySection() {
+  const layers = [
     {
-      layer: "L1",
-      tone: "threat",
+      tag: "L1",
+      tone: "threat" as const,
       title: "Jito-bundle membership",
       body: "When the front and back of a sandwich land in the same Jito bundle, the bracket is mechanical, not statistical. Confidence 1.00.",
     },
     {
-      layer: "L2",
-      tone: "threat",
-      title: "Nearest same-pool neighbors",
+      tag: "L2",
+      tone: "threat" as const,
+      title: "Same-pool nearest neighbors",
       body: "Validator-direct attacks bypass Jito. We match same-pool, signer-shared, direction-reversed adjacency at ≥95% sell-through.",
     },
     {
-      layer: "L3 / L4",
-      tone: "amber",
-      title: "Known-bot + statistical",
-      body: "Same-slot patterns from registered MEV signers, plus statistical fits with five false-positive guards. Suspected, marked amber.",
+      tag: "L3",
+      tone: "amber" as const,
+      title: "Known-bot signers",
+      body: "Same-slot patterns from registered MEV signers in our bot registry. Confirmed actor, suspected attack, marked amber.",
+    },
+    {
+      tag: "L4",
+      tone: "amber" as const,
+      title: "Statistical fits",
+      body: "Wide non-bundled brackets gated by five false-positive guards: layer-aware loss thresholds, slippage realism, sell-through floor.",
     },
   ];
 
@@ -124,173 +219,245 @@ function EvidenceBand() {
     <section
       style={{
         padding: "96px 24px",
-        borderTop: "1px solid var(--border-subtle)",
-        background: "var(--bg-base)",
+        borderBottom: "1px solid var(--border-subtle)",
       }}
     >
-      <div className="mx-auto max-w-6xl">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
-          <div className="flex flex-col gap-8">
-            <div>
-              <p className="text-label">Why four layers</p>
-              <h2 className="text-h1 mt-3" style={{ maxWidth: 520 }}>
-                Sandwich bots don&apos;t leave one fingerprint. Neither does this scanner.
-              </h2>
-              <p
-                className="mt-4"
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: 15,
-                  lineHeight: 1.6,
-                  color: "var(--text-secondary)",
-                  maxWidth: 460,
-                }}
-              >
-                Each layer trades coverage for confidence. We surface every
-                layer separately so you can read the verdict without trusting
-                the math.
-              </p>
-            </div>
+      <div className="mx-auto" style={{ maxWidth: 1280 }}>
+        <SectionMarker num="01" label="Methodology">
+          Sandwich bots don&apos;t leave one fingerprint.<br />
+          <em>Neither does this scanner.</em>
+        </SectionMarker>
 
-            <div
-              className="grid grid-cols-2 gap-px"
-              style={{
-                background: "var(--border-subtle)",
-                border: "1px solid var(--border-subtle)",
-                borderRadius: "var(--radius-panel)",
-                overflow: "hidden",
-                maxWidth: 460,
-              }}
-            >
-              <EvidenceStat
-                label="Ground-truth recall"
-                value="30/30"
-                hint="Jito-bundle confirmed"
-                tone="threat"
-              />
-              <EvidenceStat
-                label="False-positive guards"
-                value="5"
-                hint="applied at L4"
-              />
-            </div>
-
-            <p
+        <div className="section-prose" style={{ marginTop: 48 }}>
+          <p className="text-body" style={{ marginBottom: 16 }}>
+            Each layer trades coverage for confidence. We surface every layer
+            separately so you can read the verdict without trusting the math.
+            L1 is mechanical: same Jito bundle, signer-bracket inverted,
+            confidence 1.00. L4 is statistical: wide same-slot pattern,
+            confirmed actor unknown, marked amber.
+          </p>
+          <p className="text-body-sm">
+            Reproducible offline via{" "}
+            <code
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                color: "var(--text-tertiary)",
-                letterSpacing: 0,
-                maxWidth: 460,
-                lineHeight: 1.55,
+                background: "var(--bg-elevated)",
+                padding: "1px 6px",
+                fontSize: "0.9em",
+                color: "var(--accent)",
+                border: "1px solid var(--border-subtle)",
               }}
             >
-              Reproducible offline via{" "}
-              <span style={{ color: "var(--text-secondary)" }}>
-                pnpm harness validate-mined
-              </span>
-              . Every detection persists its layer, confidence, and loss
-              method — no opaque scores.
-            </p>
-          </div>
+              pnpm harness validate-mined
+            </code>
+            . Every detection persists its layer, confidence, and loss method —
+            no opaque scores.
+          </p>
+        </div>
 
-          <div className="flex flex-col" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-            {layers.map((l) => (
-              <div
-                key={l.layer}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(72px, auto) 1fr",
-                  gap: 24,
-                  padding: "24px 0",
-                  borderBottom: "1px solid var(--border-subtle)",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 13,
-                    color:
-                      l.tone === "threat"
-                        ? "var(--threat-red)"
-                        : "var(--threat-amber)",
-                    letterSpacing: 0,
-                    paddingTop: 2,
-                  }}
-                >
-                  {l.layer}
-                </span>
-                <div>
-                  <p
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 14,
-                      color: "var(--text-primary)",
-                      letterSpacing: 0,
-                    }}
-                  >
-                    {l.title}
-                  </p>
-                  <p
-                    className="mt-2"
-                    style={{
-                      fontFamily: "var(--font-sans)",
-                      fontSize: 14,
-                      lineHeight: 1.55,
-                      color: "var(--text-secondary)",
-                    }}
-                  >
-                    {l.body}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="layer-grid" style={{ marginTop: 48 }}>
+          {layers.map((l) => (
+            <LayerCard key={l.tag} {...l} />
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-function EvidenceStat({
-  label,
-  value,
-  hint,
+function LayerCard({
+  tag,
   tone,
+  title,
+  body,
 }: {
-  label: string;
-  value: string;
-  hint: string;
-  tone?: "threat";
+  tag: string;
+  tone: "threat" | "amber";
+  title: string;
+  body: string;
 }) {
+  const color =
+    tone === "threat" ? "var(--threat-red)" : "var(--threat-amber)";
   return (
-    <div style={{ background: "var(--bg-base)", padding: "16px 18px" }}>
-      <p className="text-label">{label}</p>
-      <p
-        className="mt-2"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 28,
-          color:
-            tone === "threat" ? "var(--threat-red)" : "var(--text-primary)",
-          fontVariantNumeric: "tabular-nums",
-          letterSpacing: 0,
-          lineHeight: 1,
-        }}
-      >
-        {value}
-      </p>
-      <p
-        className="mt-2"
+    <article
+      style={{
+        background: "var(--bg-surface)",
+        border: "1px solid var(--border-subtle)",
+        borderLeft: `2px solid ${color}`,
+        padding: 24,
+      }}
+    >
+      <div
         style={{
           fontFamily: "var(--font-mono)",
           fontSize: 11,
-          color: "var(--text-tertiary)",
-          letterSpacing: 0,
+          color,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          marginBottom: 12,
+          fontWeight: 600,
         }}
       >
-        {hint}
+        {tag}
+      </div>
+      <h3
+        className="text-h2"
+        style={{ marginBottom: 10, color: "var(--text-primary)" }}
+      >
+        {title}
+      </h3>
+      <p
+        className="text-body-sm"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        {body}
       </p>
-    </div>
+    </article>
+  );
+}
+
+/* ============================================================
+   Pull quote between § 01 and § 02
+   ============================================================ */
+function BridgeQuote() {
+  return (
+    <section
+      style={{
+        padding: "32px 24px 48px",
+        borderBottom: "1px solid var(--border-subtle)",
+      }}
+    >
+      <div className="mx-auto" style={{ maxWidth: 1280 }}>
+        <PullQuote attr="Invisible theft, made visible">
+          Your slippage isn&apos;t bad luck.{" "}
+          <span>It was engineered.</span>
+        </PullQuote>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================
+   § 02 — Sample scan
+   ============================================================ */
+function SampleSection() {
+  return (
+    <section
+      style={{
+        padding: "96px 24px",
+        borderBottom: "1px solid var(--border-subtle)",
+      }}
+    >
+      <div className="mx-auto" style={{ maxWidth: 1280 }}>
+        <SectionMarker num="02" label="Sample scan">
+          What a real verdict<br />
+          <em>actually looks like.</em>
+        </SectionMarker>
+
+        <div className="section-prose" style={{ marginTop: 48 }}>
+          <p className="text-body" style={{ marginBottom: 24 }}>
+            A wallet you&apos;ve never heard of, scanned in fifteen seconds. Three
+            confirmed brackets. $247.83 extracted. The attacker, validator,
+            pool, layer, and confidence — all surfaced, all traceable on
+            Solscan.
+          </p>
+        </div>
+
+        <div
+          className="report-frame"
+          style={{
+            marginTop: 48,
+            padding: "48px 32px 32px",
+          }}
+        >
+          <p
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: "var(--text-tertiary)",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              marginBottom: 24,
+              paddingLeft: 32,
+            }}
+          >
+            Fig. 01 ·{" "}
+            <span style={{ color: "var(--accent)", fontWeight: 500 }}>
+              The lifecycle of a forensic scan
+            </span>{" "}
+            · sample wallet · 30-day window
+          </p>
+
+          <SampleScan />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================
+   § 03 — Run the scan
+   ============================================================ */
+function RunScanSection() {
+  return (
+    <section style={{ padding: "96px 24px 112px" }}>
+      <div className="mx-auto" style={{ maxWidth: 1280 }}>
+        <SectionMarker num="03" label="Run the scan">
+          The only useful verdict<br />
+          is the one tied to <em>your</em> wallet.
+        </SectionMarker>
+
+        <div className="section-prose" style={{ marginTop: 48 }}>
+          <p className="text-body" style={{ marginBottom: 32 }}>
+            Paste a Solana address. The scan runs read-only against Helius and
+            our detection pipeline; nothing is signed, nothing is broadcast,
+            nothing leaves your wallet. The first detection lands in seconds.
+          </p>
+        </div>
+
+        <div style={{ marginTop: 8, maxWidth: 760 }}>
+          <ScanInputPanel
+            num="03"
+            label="Begin scan"
+            title="Paste a wallet."
+            helper="Read-only forensic scan. Output: attacker, validator, pool, confidence, USD extracted — per detection."
+            ctaLabel="Run scan →"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================
+   Footer
+   ============================================================ */
+function Footer() {
+  return (
+    <footer
+      style={{
+        padding: "48px 24px 32px",
+        background: "var(--bg-base)",
+        borderTop: "1px solid var(--border-subtle)",
+      }}
+    >
+      <div
+        className="mx-auto flex flex-wrap items-center justify-between gap-4"
+        style={{
+          maxWidth: 1280,
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          color: "var(--text-tertiary)",
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+        }}
+      >
+        <span>
+          Get<span style={{ color: "var(--accent)" }}>Toasted</span> · Field
+          Guide / Vol.01
+        </span>
+        <span>Built for Solana mainnet-beta · 2026</span>
+      </div>
+    </footer>
   );
 }

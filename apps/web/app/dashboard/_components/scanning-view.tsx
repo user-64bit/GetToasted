@@ -18,9 +18,6 @@ function shortAddress(addr: string): string {
 }
 
 export function ScanningView({ wallet, summary }: ScanningViewProps) {
-  // Refetch every 2s while scanning so detections appear live as the
-  // worker writes them to detected_sandwiches. Stops once the parent
-  // dashboard-client transitions us out (scanStatus !== scanning|pending).
   const sandwichesQ = useWalletSandwiches(
     wallet,
     { limit: 25 },
@@ -32,43 +29,48 @@ export function ScanningView({ wallet, summary }: ScanningViewProps) {
   const transactionsAnalyzed = progress?.signaturesProcessed ?? 0;
   const sandwichesFound = progress?.sandwichesFound ?? summary.sandwichCount;
 
-  // "pending" = queued, worker hasn't started; "scanning" but 0 sigs = worker
-  // is in its first Helius call. Surfacing this so 0/0/0% isn't a mystery.
   const isQueued =
-    summary.scanStatus === "pending" || (progress == null && transactionsAnalyzed === 0);
+    summary.scanStatus === "pending" ||
+    (progress == null && transactionsAnalyzed === 0);
   const status = isQueued
     ? "Queued — waiting for scanner worker"
     : transactionsAnalyzed === 0
-    ? "Fetching first batch from Helius"
-    : undefined;
+      ? "Fetching first batch from Helius"
+      : undefined;
 
   const recent = (sandwichesQ.data?.data ?? []).map(rowToSandwich);
 
   return (
     <main style={{ minHeight: "100vh" }}>
       <DashboardTopbar wallet={wallet} />
-      <div
-        className="flex items-center justify-center px-4 py-10 md:px-6"
-        style={{ minHeight: "calc(100vh - 56px)" }}
-      >
+      <div className="px-5 py-12 md:px-10 md:py-16">
         <div className="mx-auto w-full max-w-4xl">
-          <p className="text-label">Dashboard / scanning</p>
-          <h1 className="text-h1 mt-3">Forensic scan in progress</h1>
           <p
-            className="mt-3"
+            className="text-kicker"
+            style={{ marginBottom: 16, color: "var(--accent)" }}
+          >
+            § FORENSIC SCAN / IN PROGRESS
+          </p>
+          <h1
+            className="text-h1"
+            style={{ color: "var(--text-primary)", maxWidth: 720 }}
+          >
+            Pulling every transaction.
+            <br />
+            <em>Reading every slot.</em>
+          </h1>
+          <p
+            className="text-body-sm"
             style={{
               maxWidth: 620,
-              fontFamily: "var(--font-sans)",
-              fontSize: 15,
-              lineHeight: 1.55,
-              color: "var(--text-secondary)",
+              marginTop: 16,
             }}
           >
             Detections appear as soon as the worker persists confirmed or
-            suspected sandwich brackets.
+            suspected sandwich brackets. Live stream below.
           </p>
 
-          <div className="mt-8">
+          <div className="mt-10">
             <ScanProgress
               progress={progressPct}
               sandwichesFound={sandwichesFound}
@@ -78,8 +80,17 @@ export function ScanningView({ wallet, summary }: ScanningViewProps) {
             />
           </div>
 
-          <div className="mt-8">
-            <p className="text-label" style={{ marginBottom: 12 }}>
+          <div className="mt-10">
+            <p
+              className="text-kicker"
+              style={{
+                marginBottom: 16,
+                color:
+                  recent.length > 0
+                    ? "var(--threat-red)"
+                    : "var(--text-tertiary)",
+              }}
+            >
               Live detection stream / {recent.length}
             </p>
             {recent.length > 0 ? (
@@ -91,13 +102,13 @@ export function ScanningView({ wallet, summary }: ScanningViewProps) {
             ) : (
               <div
                 style={{
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "var(--radius-panel)",
+                  border: "1px dashed var(--border-subtle)",
                   background: "var(--bg-surface)",
-                  padding: 18,
+                  padding: 22,
                   fontFamily: "var(--font-mono)",
                   color: "var(--text-tertiary)",
-                  fontSize: 13,
+                  fontSize: 12,
+                  letterSpacing: "0.05em",
                 }}
               >
                 No detections persisted yet. The stream will update during the

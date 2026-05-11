@@ -27,38 +27,40 @@ export function CompleteView({ wallet, data }: CompleteViewProps) {
       ) : (
         <main className="px-5 py-10 md:px-10 md:py-14">
           <div className="max-w-6xl mx-auto">
-              <header className="mb-10">
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    gap: 16,
-                    flexWrap: "wrap",
-                  }}
+            <header
+              className="flex items-start justify-between flex-wrap gap-6"
+              style={{ marginBottom: 40 }}
+            >
+              <div style={{ flex: 1, minWidth: 260 }}>
+                <p
+                  className="text-kicker"
+                  style={{ marginBottom: 12, color: "var(--threat-red)" }}
                 >
-                  <div>
-                    <p className="text-label">Forensic report · {truncated}</p>
-                    <h1 className="text-h1 mt-2">
-                      This wallet has been sandwiched.
-                    </h1>
-                  </div>
-                  <LastScanned wallet={wallet} lastScanAt={data.lastScanAt} />
-                </div>
-              </header>
-
-              <KpiRow data={data} />
-
-              <div className="mt-8">
-                <LossesChart data={data.series} />
+                  § FORENSIC REPORT / WALLET {truncated}
+                </p>
+                <h1
+                  className="text-h1"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  This wallet has been{" "}
+                  <em>sandwiched.</em>
+                </h1>
               </div>
+              <LastScanned wallet={wallet} lastScanAt={data.lastScanAt} />
+            </header>
 
-              <div className="mt-8">
-                <SandwichTable
-                  sandwiches={data.sandwiches}
-                  referenceNow={data.referenceNow}
-                />
-              </div>
+            <KpiRow data={data} />
+
+            <div style={{ marginTop: 40 }}>
+              <LossesChart data={data.series} />
+            </div>
+
+            <div style={{ marginTop: 40 }}>
+              <SandwichTable
+                sandwiches={data.sandwiches}
+                referenceNow={data.referenceNow}
+              />
+            </div>
           </div>
         </main>
       )}

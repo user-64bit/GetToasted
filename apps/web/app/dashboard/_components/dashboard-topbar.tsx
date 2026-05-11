@@ -11,82 +11,93 @@ export function DashboardTopbar({ wallet }: { wallet: string }) {
     wallet.length > 10 ? `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : wallet;
 
   return (
-    <header
-      className="flex items-center gap-4"
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 30,
-        background: "color-mix(in srgb, var(--bg-base) 92%, transparent)",
-        borderBottom: "1px solid var(--border-subtle)",
-        padding: "12px 20px",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-      }}
-    >
-      <Link
-        href="/"
+    <header className="masthead">
+      <div
+        className="mx-auto flex items-center gap-4"
         style={{
+          maxWidth: 1400,
+          padding: "12px 24px",
           fontFamily: "var(--font-mono)",
-          fontSize: 14,
-          fontWeight: 500,
+          fontSize: 11,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
         }}
       >
-        Get<span style={{ color: "var(--threat-red)" }}>Toasted</span>
-      </Link>
+        <Link
+          href="/"
+          className="flex items-center gap-3"
+          aria-label="GetToasted home"
+        >
+          <span aria-hidden className="gt-brand-dot" />
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              fontWeight: 600,
+              letterSpacing: "0.08em",
+              color: "var(--text-primary)",
+              textTransform: "uppercase",
+            }}
+          >
+            Get<span style={{ color: "var(--accent)" }}>Toasted</span>
+          </span>
+        </Link>
 
-      <span
-        aria-hidden
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 12,
-          color: "var(--text-muted)",
-        }}
-        className="hidden sm:inline"
-      >
-        /
-      </span>
-
-      <span
-        className="hidden sm:inline-flex items-center gap-2"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 12,
-          color: "var(--text-secondary)",
-          padding: "4px 10px",
-          background: "var(--bg-elevated)",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 4,
-        }}
-      >
         <span
           aria-hidden
           style={{
-            width: 6,
-            height: 6,
-            borderRadius: 999,
-            background: "var(--safe-green)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--text-muted)",
           }}
-        />
-        {truncated}
-      </span>
+          className="hidden sm:inline"
+        >
+          /
+        </span>
 
-      <div className="ml-auto flex items-center gap-1">
-        <Link
-          href="/simulator"
-          className="nav-link"
+        <span
+          className="hidden sm:inline-flex items-center gap-2"
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 13,
+            fontSize: 11,
+            letterSpacing: "0.05em",
             color: "var(--text-secondary)",
-            padding: "8px 12px",
-            borderRadius: 6,
-            letterSpacing: 0,
+            padding: "4px 10px",
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: 2,
           }}
         >
-          Simulator
-        </Link>
-        <WalletMenu wallet={wallet} truncated={truncated} />
+          <span
+            aria-hidden
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 999,
+              background: "var(--safe-green)",
+            }}
+          />
+          {truncated}
+        </span>
+
+        <div className="ml-auto flex items-center gap-1">
+          <Link
+            href="/simulator"
+            className="nav-link hidden md:inline-flex"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--text-secondary)",
+              padding: "8px 14px",
+              borderRadius: 4,
+            }}
+          >
+            Simulator
+          </Link>
+          <WalletMenu wallet={wallet} truncated={truncated} />
+        </div>
       </div>
     </header>
   );

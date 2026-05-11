@@ -13,36 +13,52 @@ export function CleanWallet({
   lastScanAt,
 }: CleanWalletProps) {
   return (
-    <main className="px-4 py-10 md:px-12 md:py-16">
-      <div className="mx-auto max-w-4xl">
-        <p className="text-label">Forensic verdict</p>
-        <h1 className="text-h1 mt-3">No sandwich attacks detected.</h1>
+    <main className="px-5 py-14 md:px-12 md:py-20">
+      <div className="mx-auto" style={{ maxWidth: 920 }}>
         <p
-          className="mt-3"
-          style={{
-            maxWidth: 620,
-            fontFamily: "var(--font-sans)",
-            fontSize: 15,
-            lineHeight: 1.55,
-            color: "var(--text-secondary)",
-          }}
+          className="text-kicker"
+          style={{ marginBottom: 16, color: "var(--safe-green)" }}
         >
-          The scan completed without finding a confirmed or suspected sandwich
-          bracket against this wallet.
+          § FORENSIC VERDICT / NO ACTIVITY
         </p>
 
-        <section
-          className="mt-8"
+        <h1
+          className="text-section"
           style={{
-            background: "var(--bg-surface)",
+            color: "var(--text-primary)",
+            maxWidth: 800,
+            marginBottom: 32,
+          }}
+        >
+          No sandwich.
+          <br />
+          <em style={{ color: "var(--safe-green)", fontStyle: "italic" }}>
+            You&apos;re clean.
+          </em>
+        </h1>
+
+        <div className="prose-editorial" style={{ maxWidth: 720 }}>
+          <p>
+            The forensic scan completed without finding a confirmed or
+            suspected sandwich bracket against this wallet. Every signature
+            was decoded, every same-pool neighbor checked, every same-slot
+            actor against our bot registry — nothing matched. That
+            doesn&apos;t mean you&apos;ve never been sandwiched on a different
+            wallet, only that this one came back empty.
+          </p>
+        </div>
+
+        <section
+          style={{
+            marginTop: 48,
             border: "1px solid var(--border-subtle)",
-            borderRadius: "var(--radius-panel)",
-            overflow: "hidden",
           }}
         >
           <div
-            className="grid gap-px sm:grid-cols-3"
-            style={{ background: "var(--border-subtle)" }}
+            className="clean-metrics"
+            style={{
+              borderBottom: "1px solid var(--border-subtle)",
+            }}
           >
             <Metric label="Detections" value="0" tone="safe" />
             <Metric
@@ -54,26 +70,26 @@ export function CleanWallet({
 
           <div
             className="flex flex-wrap items-center justify-between gap-4"
-            style={{ padding: 20 }}
+            style={{ padding: "20px 24px" }}
           >
             <LastScanned wallet={wallet} lastScanAt={lastScanAt} />
             <Link
               href="/"
               className="gt-btn-secondary"
               style={{
-                border: "1px solid var(--border-default)",
-                borderRadius: "var(--radius-control)",
-                padding: "10px 14px",
                 fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                color: "var(--text-primary)",
+                fontSize: 11,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                padding: "10px 16px",
               }}
             >
-              Check another wallet
+              Check another wallet →
             </Link>
           </div>
         </section>
       </div>
+
     </main>
   );
 }
@@ -88,15 +104,28 @@ function Metric({
   tone?: "safe";
 }) {
   return (
-    <div style={{ background: "var(--bg-surface)", padding: 18 }}>
-      <p className="text-label">{label}</p>
+    <div
+      className="clean-metric"
+      style={{
+        padding: "24px 22px",
+        borderRight: "1px solid var(--border-subtle)",
+      }}
+    >
       <p
-        className="mt-2"
+        className="text-kicker"
+        style={{ marginBottom: 12, color: "var(--text-tertiary)" }}
+      >
+        {label}
+      </p>
+      <p
         style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 28,
+          fontFamily: "var(--font-display-family)",
+          fontSize: "clamp(32px, 4vw, 44px)",
+          fontWeight: 400,
+          letterSpacing: "-0.02em",
           color: tone === "safe" ? "var(--safe-green)" : "var(--text-primary)",
           fontVariantNumeric: "tabular-nums",
+          lineHeight: 1,
         }}
       >
         {value}

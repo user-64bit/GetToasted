@@ -85,11 +85,15 @@ export function ScanProgress({
         }}
       >
         <div className="flex min-w-0 items-center gap-3">
-          <span className="gt-scan-pulse-dot" aria-hidden />
+          <span
+            className={`gt-scan-pulse-dot ${hasThreats ? "" : "brand"}`}
+            aria-hidden
+          />
           <span
             style={{
-              color: hasThreats ? "var(--threat-red)" : "var(--accent-strong)",
+              color: hasThreats ? "var(--threat-red)" : "var(--accent)",
               fontSize: 11,
+              letterSpacing: "0.15em",
               textTransform: "uppercase",
             }}
           >
