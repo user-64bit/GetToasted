@@ -17,6 +17,7 @@
         "HELIUS_RPC_URL",
         "APP_URL",
         "API_BASE_URL",
+        "VERCEL",
         "PORT",
         "HELIUS_WEBHOOK_SECRET",
         "JWT_SECRET",
