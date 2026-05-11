@@ -5,9 +5,9 @@ const nextConfig = {
   async rewrites() {
     const apiBase = process.env.API_BASE_URL;
     if (!apiBase) {
-      if (process.env.NODE_ENV === "production") {
+      if (process.env.VERCEL) {
         throw new Error(
-          "API_BASE_URL must be set in production so /api/* can be proxied to the Hono API",
+          "API_BASE_URL must be set on Vercel so /api/* can be proxied to the Hono API",
         );
       }
       return [
