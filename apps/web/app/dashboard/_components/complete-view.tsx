@@ -17,7 +17,10 @@ export function CompleteView({ wallet, data }: CompleteViewProps) {
 
   return (
     <div style={{ minHeight: "100vh" }}>
-      <DashboardTopbar wallet={wallet} />
+      <DashboardTopbar
+        wallet={wallet}
+        tone={data.attacksFound > 0 ? "threat" : "brand"}
+      />
       {data.attacksFound === 0 ? (
         <CleanWallet
           wallet={wallet}

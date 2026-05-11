@@ -6,9 +6,17 @@ import { useEffect, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { getApiUrl } from "../../lib/api-url";
 
-export function DashboardTopbar({ wallet }: { wallet: string }) {
+export function DashboardTopbar({
+  wallet,
+  tone = "brand",
+}: {
+  wallet: string;
+  tone?: "brand" | "threat";
+}) {
   const truncated =
     wallet.length > 10 ? `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : wallet;
+  const markColor =
+    tone === "threat" ? "var(--threat-red)" : "var(--accent)";
 
   return (
     <header className="masthead">
@@ -28,7 +36,10 @@ export function DashboardTopbar({ wallet }: { wallet: string }) {
           className="flex items-center gap-3"
           aria-label="GetToasted home"
         >
-          <span aria-hidden className="gt-brand-dot" />
+          <span
+            aria-hidden
+            className={tone === "threat" ? "gt-brand-dot threat" : "gt-brand-dot"}
+          />
           <span
             style={{
               fontFamily: "var(--font-mono)",
@@ -39,7 +50,7 @@ export function DashboardTopbar({ wallet }: { wallet: string }) {
               textTransform: "uppercase",
             }}
           >
-            Get<span style={{ color: "var(--accent)" }}>Toasted</span>
+            Get<span style={{ color: markColor }}>Toasted</span>
           </span>
         </Link>
 

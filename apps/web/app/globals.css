@@ -433,6 +433,13 @@ textarea {
   flex-shrink: 0;
 }
 
+/* On the attacks-found dashboard the brand yields to the verdict. */
+.gt-brand-dot.threat {
+  background: var(--threat-red);
+  box-shadow: 0 0 12px var(--threat-red);
+  animation: threat-pulse 2s ease-in-out infinite;
+}
+
 /* ======================================================================
    Section-marker grid — § NN / TITLE pattern from the artifact
    ====================================================================== */
