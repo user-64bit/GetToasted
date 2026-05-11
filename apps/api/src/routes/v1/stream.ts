@@ -19,6 +19,12 @@ stream.get(
   async (c) => {
     const { address } = c.req.valid("param");
 
+    // Disable proxy buffering (nginx, Vercel/Cloudflare) so progress
+    // events flush immediately instead of pooling into one chunk.
+    c.header("Cache-Control", "no-cache, no-transform");
+    c.header("X-Accel-Buffering", "no");
+    c.header("Connection", "keep-alive");
+
     return streamSSE(c, async (sseStream) => {
       // Dedicated connection for blocking XREAD — must not block the shared redis client
       const reader = new IORedis(serverEnv.REDIS_URL, {
