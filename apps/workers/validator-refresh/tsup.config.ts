@@ -12,6 +12,7 @@ export default defineConfig({
     "@get-toasted/db",
     "@get-toasted/env",
     "@get-toasted/helius",
+    "@get-toasted/runtime",
     "@get-toasted/schemas",
   ],
 });

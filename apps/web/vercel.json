@@ -3,5 +3,8 @@
   "framework": "nextjs",
   "installCommand": "cd ../.. && find . -type d -name node_modules -prune -exec rm -rf {} + && pnpm install --frozen-lockfile --prod=false",
   "buildCommand": "cd ../.. && pnpm turbo build --filter=web",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://api.gettoasted.fun/api/:path*" }
+  ]
 }
