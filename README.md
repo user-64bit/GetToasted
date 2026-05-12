@@ -411,4 +411,4 @@ This repo requires Node 20+. Use `nvm use 20` (or `fnm`, `volta`) and re-run.
 
 ## License
 
-Proprietary — all rights reserved (hackathon project, license TBD).
+Proprietary — all rights reserved [MIT]
