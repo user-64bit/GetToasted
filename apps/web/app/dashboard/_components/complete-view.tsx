@@ -12,15 +12,9 @@ interface CompleteViewProps {
 }
 
 export function CompleteView({ wallet, data }: CompleteViewProps) {
-  const truncated =
-    wallet.length > 10 ? `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : wallet;
-
   return (
     <div style={{ minHeight: "100vh" }}>
-      <DashboardTopbar
-        wallet={wallet}
-        tone={data.attacksFound > 0 ? "threat" : "brand"}
-      />
+      <DashboardTopbar wallet={wallet} tone={data.attacksFound > 0 ? "threat" : "brand"} />
       {data.attacksFound === 0 ? (
         <CleanWallet
           wallet={wallet}
@@ -28,25 +22,19 @@ export function CompleteView({ wallet, data }: CompleteViewProps) {
           lastScanAt={data.lastScanAt}
         />
       ) : (
-        <main className="px-5 py-10 md:px-10 md:py-14">
-          <div className="max-w-6xl mx-auto">
+        <main className="py-10 md:py-14">
+          <div className="wrap" style={{ maxWidth: 1080 }}>
             <header
               className="flex items-start justify-between flex-wrap gap-6"
-              style={{ marginBottom: 40 }}
+              style={{ marginBottom: 32 }}
             >
               <div style={{ flex: 1, minWidth: 260 }}>
-                <p
-                  className="text-kicker"
-                  style={{ marginBottom: 12, color: "var(--threat-red)" }}
-                >
-                  § FORENSIC REPORT / WALLET {truncated}
+                <p className="text-kicker" style={{ marginBottom: 12, color: "var(--threat-red)" }}>
+                  Forensic verdict
                 </p>
-                <h1
-                  className="text-h1"
-                  style={{ color: "var(--text-primary)" }}
-                >
+                <h1 className="text-section" style={{ color: "var(--text-primary)" }}>
                   This wallet has been{" "}
-                  <em>sandwiched.</em>
+                  <span style={{ color: "var(--threat-red)" }}>sandwiched.</span>
                 </h1>
               </div>
               <LastScanned wallet={wallet} lastScanAt={data.lastScanAt} />
@@ -54,15 +42,12 @@ export function CompleteView({ wallet, data }: CompleteViewProps) {
 
             <KpiRow data={data} />
 
-            <div style={{ marginTop: 40 }}>
+            <div style={{ marginTop: 32 }}>
               <LossesChart data={data.series} />
             </div>
 
-            <div style={{ marginTop: 40 }}>
-              <SandwichTable
-                sandwiches={data.sandwiches}
-                referenceNow={data.referenceNow}
-              />
+            <div style={{ marginTop: 32 }}>
+              <SandwichTable sandwiches={data.sandwiches} referenceNow={data.referenceNow} />
             </div>
           </div>
         </main>

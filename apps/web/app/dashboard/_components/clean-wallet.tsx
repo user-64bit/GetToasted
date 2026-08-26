@@ -7,124 +7,66 @@ interface CleanWalletProps {
   lastScanAt: string | null;
 }
 
-export function CleanWallet({
-  wallet,
-  transactionsAnalyzed,
-  lastScanAt,
-}: CleanWalletProps) {
+export function CleanWallet({ wallet, transactionsAnalyzed, lastScanAt }: CleanWalletProps) {
   return (
-    <main className="px-5 py-14 md:px-12 md:py-20">
-      <div className="mx-auto" style={{ maxWidth: 920 }}>
-        <p
-          className="text-kicker"
-          style={{ marginBottom: 16, color: "var(--safe-green)" }}
-        >
-          § FORENSIC VERDICT / NO ACTIVITY
+    <main className="py-14 md:py-20">
+      <div className="wrap" style={{ maxWidth: 880 }}>
+        <p className="text-kicker" style={{ marginBottom: 14, color: "var(--safe-green)" }}>
+          Forensic verdict · clean
         </p>
 
-        <h1
-          className="text-section"
-          style={{
-            color: "var(--text-primary)",
-            maxWidth: 800,
-            marginBottom: 32,
-          }}
-        >
-          No sandwich.
+        <h1 className="text-section" style={{ color: "var(--text-primary)", marginBottom: 26 }}>
+          No sandwich found.
           <br />
-          <em style={{ color: "var(--safe-green)", fontStyle: "italic" }}>
-            You&apos;re clean.
-          </em>
+          <span style={{ color: "var(--safe-green)" }}>You&apos;re clean.</span>
         </h1>
 
-        <div className="prose-editorial" style={{ maxWidth: 720 }}>
+        <div className="prose-editorial" style={{ maxWidth: 640 }}>
           <p>
-            The forensic scan completed without finding a confirmed or
-            suspected sandwich bracket against this wallet. Every signature
-            was decoded, every same-pool neighbor checked, every same-slot
-            actor against our bot registry — nothing matched. That
-            doesn&apos;t mean you&apos;ve never been sandwiched on a different
-            wallet, only that this one came back empty.
+            The scan decoded every signature, checked every same-pool neighbour,
+            and tested every same-slot actor against the bot registry —{" "}
+            <strong>nothing bracketed this wallet.</strong> That doesn&apos;t
+            prove you&apos;ve never been sandwiched on another wallet; it means
+            this one came back empty.
           </p>
         </div>
 
-        <section
-          style={{
-            marginTop: 48,
-            border: "1px solid var(--border-subtle)",
-          }}
-        >
-          <div
-            className="clean-metrics"
-            style={{
-              borderBottom: "1px solid var(--border-subtle)",
-            }}
-          >
+        <section className="panel" style={{ marginTop: 40, overflow: "hidden" }}>
+          <div className="clean-metrics" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
             <Metric label="Detections" value="0" tone="safe" />
-            <Metric
-              label="Transactions analyzed"
-              value={transactionsAnalyzed.toLocaleString("en-US")}
-            />
+            <Metric label="Transactions analyzed" value={transactionsAnalyzed.toLocaleString("en-US")} />
             <Metric label="Verdict" value="Clean" tone="safe" />
           </div>
 
           <div
             className="flex flex-wrap items-center justify-between gap-4"
-            style={{ padding: "20px 24px" }}
+            style={{ padding: "18px 22px" }}
           >
             <LastScanned wallet={wallet} lastScanAt={lastScanAt} />
-            <Link
-              href="/"
-              className="gt-btn-secondary"
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                padding: "10px 16px",
-              }}
-            >
+            <Link href="/" className="btn btn-outline btn-sm">
               Check another wallet →
             </Link>
           </div>
         </section>
       </div>
-
     </main>
   );
 }
 
-function Metric({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: "safe";
-}) {
+function Metric({ label, value, tone }: { label: string; value: string; tone?: "safe" }) {
   return (
-    <div
-      className="clean-metric"
-      style={{
-        padding: "24px 22px",
-        borderRight: "1px solid var(--border-subtle)",
-      }}
-    >
-      <p
-        className="text-kicker"
-        style={{ marginBottom: 12, color: "var(--text-tertiary)" }}
-      >
+    <div className="clean-metric" style={{ padding: "22px 22px" }}>
+      <p className="text-label" style={{ marginBottom: 12 }}>
         {label}
       </p>
       <p
+        className="tnum"
         style={{
-          fontFamily: "var(--font-display-family)",
-          fontSize: "clamp(32px, 4vw, 44px)",
-          fontWeight: 400,
+          fontFamily: "var(--font-mono)",
+          fontSize: "clamp(28px, 3.6vw, 40px)",
+          fontWeight: 500,
           letterSpacing: "-0.02em",
           color: tone === "safe" ? "var(--safe-green)" : "var(--text-primary)",
-          fontVariantNumeric: "tabular-nums",
           lineHeight: 1,
         }}
       >

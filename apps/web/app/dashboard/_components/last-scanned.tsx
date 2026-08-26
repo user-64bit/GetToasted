@@ -50,18 +50,8 @@ export function LastScanned({ wallet, lastScanAt }: LastScannedProps) {
         type="button"
         onClick={() => startScan.mutate()}
         disabled={startScan.isPending}
-        style={{
-          background: "transparent",
-          border: "1px solid var(--border-default)",
-          borderRadius: 6,
-          padding: "6px 12px",
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          color: "var(--text-primary)",
-          cursor: startScan.isPending ? "wait" : "pointer",
-          letterSpacing: 0,
-          opacity: startScan.isPending ? 0.5 : 1,
-        }}
+        className="btn btn-outline btn-sm"
+        style={{ cursor: startScan.isPending ? "wait" : "pointer" }}
       >
         {startScan.isPending ? "Queuing…" : "Re-scan"}
       </button>
