@@ -188,7 +188,16 @@ export function SandwichTable({ sandwiches, referenceNow }: SandwichTableProps) 
                       <tr
                         className="sw-row"
                         onClick={() => setExpanded(open ? null : s.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setExpanded(open ? null : s.id);
+                          }
+                        }}
+                        tabIndex={0}
+                        role="button"
                         aria-expanded={open}
+                        aria-label={`Reconstruct ${s.pair} attack on ${s.pool}`}
                         style={{ cursor: "pointer" }}
                       >
                         <Td>

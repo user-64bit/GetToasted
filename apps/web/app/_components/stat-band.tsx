@@ -20,11 +20,9 @@ function toneColor(tone?: StatCellData["tone"]): string {
 }
 
 /**
- * Stat band — port of the artifact's "Fig. stat-band" pattern. Four cells
- * in a 1px-ruled grid with a faint grid backdrop. The cell *value* is
+ * Stat band — four readout cells in a hairline grid. The cell *value* is
  * rendered exactly as the caller passes it; this component only paints the
- * frame, label, and source line. Use Fraunces serif for emotionally-weighted
- * numbers, JetBrains Mono for everything else.
+ * frame, label and source line. Values should use the tabular mono readout.
  */
 export function StatBand({ cells, className }: StatBandProps) {
   return (
