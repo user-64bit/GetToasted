@@ -1,10 +1,11 @@
 "use client";
 
 import { AttackerAddress } from "@get-toasted/ui/attacker-address";
+import { BracketTrace } from "@get-toasted/ui/bracket-trace";
 import { DetectionLayerBadge } from "@get-toasted/ui/detection-layer-badge";
 import { LossValue } from "@get-toasted/ui/loss-value";
 import type { Sandwich } from "@get-toasted/ui/types";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { attackerDisplayName } from "./view-model";
 
 const TIME_RANGES = [
@@ -28,14 +29,12 @@ interface SandwichTableProps {
   referenceNow: number;
 }
 
-export function SandwichTable({
-  sandwiches,
-  referenceNow,
-}: SandwichTableProps) {
+export function SandwichTable({ sandwiches, referenceNow }: SandwichTableProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
   const [pool, setPool] = useState("all");
   const [attacker, setAttacker] = useState("all");
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const pools = useMemo(
     () => Array.from(new Set(sandwiches.map((s) => s.pool))).sort(),
@@ -64,17 +63,7 @@ export function SandwichTable({
   }, [sandwiches, timeRange, pool, attacker, query, referenceNow]);
 
   const exportCsv = () => {
-    const header = [
-      "Date",
-      "Layer",
-      "Venue",
-      "Pair",
-      "Loss USD",
-      "Attacker",
-      "Confidence",
-      "Slot",
-      "Signature",
-    ];
+    const header = ["Date", "Layer", "Venue", "Pair", "Loss USD", "Attacker", "Confidence", "Slot", "Signature"];
     const rows = [
       header,
       ...filtered.map((s) => [
@@ -90,9 +79,7 @@ export function SandwichTable({
       ]),
     ];
     const csv = rows
-      .map((row) =>
-        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
-      )
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
       .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -107,173 +94,177 @@ export function SandwichTable({
 
   return (
     <div>
-      <header className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <p className="text-label">Detections · {filtered.length}</p>
-      </header>
-
-      <div className="flex flex-wrap gap-2 mb-4">
-        <Select
-          value={timeRange}
-          onChange={(v) => setTimeRange(v as TimeRange)}
-          options={TIME_RANGES.map((r) => ({ value: r.value, label: r.label }))}
-        />
-        <Select
-          value={pool}
-          onChange={setPool}
-          options={[
-            { value: "all", label: "All DEXes" },
-            ...pools.map((p) => ({ value: p, label: p })),
-          ]}
-        />
-        <Select
-          value={attacker}
-          onChange={setAttacker}
-          options={[
-            { value: "all", label: "All attackers" },
-            ...attackers.map((a) => ({
-              value: a,
-              label: attackerDisplayName(a),
-            })),
-          ]}
-        />
-        <input
-          type="search"
-          placeholder="Search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          aria-label="Search attacks"
-          className="gt-input"
-          style={{
-            background: "var(--bg-overlay)",
-            border: "1px solid var(--border-default)",
-            borderRadius: 6,
-            padding: "8px 12px",
-            fontFamily: "var(--font-mono)",
-            fontSize: 12,
-            color: "var(--text-primary)",
-            flex: 1,
-            minWidth: 160,
-          }}
-        />
-        <button
-          type="button"
-          onClick={exportCsv}
-          className="gt-btn-secondary"
-          style={{
-            background: "var(--bg-overlay)",
-            border: "1px solid var(--border-default)",
-            borderRadius: 6,
-            padding: "8px 14px",
-            fontFamily: "var(--font-mono)",
-            fontSize: 12,
-            color: "var(--text-primary)",
-            cursor: "pointer",
-          }}
-        >
+      <header className="flex items-end justify-between flex-wrap gap-3" style={{ marginBottom: 14 }}>
+        <div>
+          <p className="text-label" style={{ marginBottom: 4 }}>
+            Evidence ledger
+          </p>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-tertiary)" }}>
+            {filtered.length} of {sandwiches.length} detections · click a row to reconstruct it
+          </p>
+        </div>
+        <button type="button" onClick={exportCsv} className="btn btn-outline btn-sm">
           Export CSV
         </button>
+      </header>
+
+      <div className="flex flex-wrap gap-2" style={{ marginBottom: 14 }}>
+        <select
+          value={timeRange}
+          onChange={(e) => setTimeRange(e.target.value as TimeRange)}
+          className="field-select"
+          style={{ width: "auto" }}
+          aria-label="Time range"
+        >
+          {TIME_RANGES.map((r) => (
+            <option key={r.value} value={r.value}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+        <select value={pool} onChange={(e) => setPool(e.target.value)} className="field-select" style={{ width: "auto" }} aria-label="Venue">
+          <option value="all">All venues</option>
+          {pools.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+        <select value={attacker} onChange={(e) => setAttacker(e.target.value)} className="field-select" style={{ width: "auto" }} aria-label="Attacker">
+          <option value="all">All attackers</option>
+          {attackers.map((a) => (
+            <option key={a} value={a}>
+              {attackerDisplayName(a)}
+            </option>
+          ))}
+        </select>
+        <input
+          type="search"
+          placeholder="Search pool, pair, attacker, signature…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search detections"
+          className="field-input"
+          style={{ flex: 1, minWidth: 180 }}
+        />
       </div>
 
-      <div
-        style={{
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 8,
-          overflow: "auto",
-        }}
-      >
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr
-              style={{
-                borderBottom: "1px solid var(--border-subtle)",
-              }}
-            >
-              <Th>Date</Th>
-              <Th>Layer</Th>
-              <Th>Venue</Th>
-              <Th>Pair</Th>
-              <Th>Loss</Th>
-              <Th>Attacker</Th>
-              <Th>Confidence</Th>
-              <Th>Tx</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  style={{
-                    padding: 32,
-                    textAlign: "center",
-                    color: "var(--text-tertiary)",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                  }}
-                >
-                  No matches
-                </td>
+      <div className="panel" style={{ overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                <Th>Date</Th>
+                <Th>Layer</Th>
+                <Th>Venue</Th>
+                <Th>Pair</Th>
+                <Th align="right">Loss</Th>
+                <Th>Attacker</Th>
+                <Th align="right">Conf.</Th>
+                <Th align="right" />
               </tr>
-            ) : (
-              filtered.map((s) => (
-                <tr key={s.id} className="sw-row">
-                  <Td>
-                    {new Date(s.detectedAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </Td>
-                  <Td>
-                    <DetectionLayerBadge layer={s.detectionLayer} />
-                  </Td>
-                  <Td>{s.pool}</Td>
-                  <Td>{s.pair}</Td>
-                  <Td>
-                    <LossValue
-                      value={s.lossUsd}
-                      outputAmount={s.lossOutputAmount}
-                      size="sm"
-                    />
-                  </Td>
-                  <Td>
-                    <AttackerAddress address={s.attacker} label={s.knownBotName} />
-                  </Td>
-                  <Td>{typeof s.confidence === "number" ? s.confidence.toFixed(2) : "--"}</Td>
-                  <Td>
-                    <a
-                      href={`https://solscan.io/tx/${encodeURIComponent(s.txSignature)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "var(--accent)" }}
-                      aria-label="View transaction on Solscan"
-                    >
-                      <span aria-hidden>↗</span>
-                    </a>
-                  </Td>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={8}
+                    style={{
+                      padding: 36,
+                      textAlign: "center",
+                      color: "var(--text-tertiary)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 12,
+                    }}
+                  >
+                    No detections match these filters.
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                filtered.map((s) => {
+                  const open = expanded === s.id;
+                  return (
+                    <Fragment key={s.id}>
+                      <tr
+                        className="sw-row"
+                        onClick={() => setExpanded(open ? null : s.id)}
+                        aria-expanded={open}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <Td>
+                          {new Date(s.detectedAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </Td>
+                        <Td>
+                          <DetectionLayerBadge layer={s.detectionLayer} />
+                        </Td>
+                        <Td>{s.pool}</Td>
+                        <Td>{s.pair}</Td>
+                        <Td align="right">
+                          <LossValue value={s.lossUsd} outputAmount={s.lossOutputAmount} size="sm" />
+                        </Td>
+                        <Td onClick={(e) => e.stopPropagation()}>
+                          <AttackerAddress address={s.attacker} label={s.knownBotName} />
+                        </Td>
+                        <Td align="right">
+                          {typeof s.confidence === "number" ? s.confidence.toFixed(2) : "—"}
+                        </Td>
+                        <Td align="right">
+                          <span
+                            aria-hidden
+                            style={{
+                              display: "inline-block",
+                              color: "var(--text-tertiary)",
+                              transition: "transform var(--duration-fast) var(--ease-out)",
+                              transform: open ? "rotate(180deg)" : "none",
+                            }}
+                          >
+                            ⌄
+                          </span>
+                        </Td>
+                      </tr>
+                      {open ? (
+                        <tr>
+                          <td colSpan={8} style={{ padding: 0, background: "var(--bg-base)" }}>
+                            <div style={{ padding: 16 }}>
+                              <BracketTrace sandwich={s} />
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
+function Th({
+  children,
+  align = "left",
+}: {
+  children?: React.ReactNode;
+  align?: "left" | "right";
+}) {
   return (
     <th
       style={{
-        textAlign: "left",
-        padding: "12px 20px",
+        textAlign: align,
+        padding: "11px 18px",
         fontFamily: "var(--font-mono)",
         fontSize: 10,
-        fontWeight: 400,
-        letterSpacing: 0,
+        fontWeight: 500,
+        letterSpacing: "0.08em",
         textTransform: "uppercase",
-        color: "var(--text-secondary)",
+        color: "var(--text-tertiary)",
         whiteSpace: "nowrap",
       }}
     >
@@ -282,60 +273,29 @@ function Th({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Td({ children }: { children: React.ReactNode }) {
+function Td({
+  children,
+  align = "left",
+  onClick,
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right";
+  onClick?: (e: React.MouseEvent) => void;
+}) {
   return (
     <td
+      onClick={onClick}
       style={{
-        padding: "12px 20px",
+        textAlign: align,
+        padding: "12px 18px",
         fontFamily: "var(--font-mono)",
         fontSize: 13,
         color: "var(--text-primary)",
         whiteSpace: "nowrap",
+        fontVariantNumeric: "tabular-nums",
       }}
     >
       {children}
     </td>
-  );
-}
-
-interface SelectProps {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}
-
-function Select({ value, onChange, options }: SelectProps) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="gt-input"
-      style={{
-        background: "var(--bg-overlay)",
-        border: "1px solid var(--border-default)",
-        borderRadius: 6,
-        padding: "8px 28px 8px 12px",
-        fontFamily: "var(--font-mono)",
-        fontSize: 12,
-        color: "var(--text-primary)",
-        cursor: "pointer",
-        appearance: "none",
-        WebkitAppearance: "none",
-        backgroundImage:
-          "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"6\" viewBox=\"0 0 10 6\"><path d=\"M1 1l4 4 4-4\" fill=\"none\" stroke=\"%23888\" stroke-width=\"1.5\"/></svg>')",
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "right 10px center",
-      }}
-    >
-      {options.map((o) => (
-        <option
-          key={o.value}
-          value={o.value}
-          style={{ background: "var(--bg-overlay)" }}
-        >
-          {o.label}
-        </option>
-      ))}
-    </select>
   );
 }

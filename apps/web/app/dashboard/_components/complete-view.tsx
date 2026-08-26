@@ -2,7 +2,7 @@ import { CleanWallet } from "./clean-wallet";
 import { DashboardTopbar } from "./dashboard-topbar";
 import { KpiRow } from "./kpi-row";
 import { LastScanned } from "./last-scanned";
-import { LossesChart } from "./losses-chart";
+import { LossBreakdown } from "./loss-breakdown";
 import { SandwichTable } from "./sandwich-table";
 import type { DashboardData } from "./view-model";
 
@@ -43,7 +43,7 @@ export function CompleteView({ wallet, data }: CompleteViewProps) {
             <KpiRow data={data} />
 
             <div style={{ marginTop: 32 }}>
-              <LossesChart data={data.series} />
+              <LossBreakdown sandwiches={data.sandwiches} />
             </div>
 
             <div style={{ marginTop: 32 }}>
