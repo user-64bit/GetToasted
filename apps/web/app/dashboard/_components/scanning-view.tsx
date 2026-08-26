@@ -14,15 +14,11 @@ interface ScanningViewProps {
 
 function shortAddress(addr: string): string {
   if (addr.length <= 10) return addr;
-  return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+  return `${addr.slice(0, 4)}…${addr.slice(-4)}`;
 }
 
 export function ScanningView({ wallet, summary }: ScanningViewProps) {
-  const sandwichesQ = useWalletSandwiches(
-    wallet,
-    { limit: 25 },
-    { refetchInterval: 2000 },
-  );
+  const sandwichesQ = useWalletSandwiches(wallet, { limit: 25 }, { refetchInterval: 2000 });
 
   const progress = summary.scanProgress;
   const progressPct = progress?.progressPct ?? 0;
@@ -30,12 +26,11 @@ export function ScanningView({ wallet, summary }: ScanningViewProps) {
   const sandwichesFound = progress?.sandwichesFound ?? summary.sandwichCount;
 
   const isQueued =
-    summary.scanStatus === "pending" ||
-    (progress == null && transactionsAnalyzed === 0);
+    summary.scanStatus === "pending" || (progress == null && transactionsAnalyzed === 0);
   const status = isQueued
-    ? "Queued — waiting for scanner worker"
+    ? "Queued — waiting for a scanner worker"
     : transactionsAnalyzed === 0
-      ? "Fetching first batch from Helius"
+      ? "Fetching the first batch from Helius"
       : undefined;
 
   const recent = (sandwichesQ.data?.data ?? []).map(rowToSandwich);
@@ -43,34 +38,20 @@ export function ScanningView({ wallet, summary }: ScanningViewProps) {
   return (
     <main style={{ minHeight: "100vh" }}>
       <DashboardTopbar wallet={wallet} />
-      <div className="px-5 py-12 md:px-10 md:py-16">
-        <div className="mx-auto w-full max-w-4xl">
-          <p
-            className="text-kicker"
-            style={{ marginBottom: 16, color: "var(--accent)" }}
-          >
-            § FORENSIC SCAN / IN PROGRESS
+      <div className="py-12 md:py-16">
+        <div className="wrap" style={{ maxWidth: 880 }}>
+          <p className="text-kicker" style={{ marginBottom: 14 }}>
+            Forensic scan · in progress
           </p>
-          <h1
-            className="text-h1"
-            style={{ color: "var(--text-primary)", maxWidth: 720 }}
-          >
-            Pulling every transaction.
-            <br />
-            <em>Reading every slot.</em>
+          <h1 className="text-h1" style={{ color: "var(--text-primary)", maxWidth: 640 }}>
+            Reading every slot this wallet touched.
           </h1>
-          <p
-            className="text-body-sm"
-            style={{
-              maxWidth: 620,
-              marginTop: 16,
-            }}
-          >
-            Detections appear as soon as the worker persists confirmed or
-            suspected sandwich brackets. Live stream below.
+          <p className="text-body-sm" style={{ maxWidth: 600, marginTop: 14 }}>
+            Detections appear the moment the worker persists a confirmed or
+            suspected bracket. Live below.
           </p>
 
-          <div className="mt-10">
+          <div style={{ marginTop: 36 }}>
             <ScanProgress
               progress={progressPct}
               sandwichesFound={sandwichesFound}
@@ -80,18 +61,15 @@ export function ScanningView({ wallet, summary }: ScanningViewProps) {
             />
           </div>
 
-          <div className="mt-10">
+          <div style={{ marginTop: 36 }}>
             <p
-              className="text-kicker"
+              className="text-label"
               style={{
-                marginBottom: 16,
-                color:
-                  recent.length > 0
-                    ? "var(--threat-red)"
-                    : "var(--text-tertiary)",
+                marginBottom: 14,
+                color: recent.length > 0 ? "var(--threat-red)" : "var(--text-tertiary)",
               }}
             >
-              Live detection stream / {recent.length}
+              Live detection stream · {recent.length}
             </p>
             {recent.length > 0 ? (
               <div className="flex flex-col gap-3">
@@ -102,17 +80,16 @@ export function ScanningView({ wallet, summary }: ScanningViewProps) {
             ) : (
               <div
                 style={{
-                  border: "1px dashed var(--border-subtle)",
+                  border: "1px dashed var(--border-default)",
+                  borderRadius: "var(--radius-panel)",
                   background: "var(--bg-surface)",
                   padding: 22,
                   fontFamily: "var(--font-mono)",
                   color: "var(--text-tertiary)",
                   fontSize: 12,
-                  letterSpacing: "0.05em",
                 }}
               >
-                No detections persisted yet. The stream will update during the
-                scan.
+                No brackets persisted yet. The stream updates as the scan runs.
               </div>
             )}
           </div>

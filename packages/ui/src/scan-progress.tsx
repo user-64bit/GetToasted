@@ -23,11 +23,11 @@ const STAGES = [
 ] as const;
 
 function deriveStatus(p: number): string {
-  if (p < 8) return "Waiting for scanner worker";
-  if (p < 34) return "Fetching wallet transaction history";
+  if (p < 8) return "Waiting for a scanner worker";
+  if (p < 34) return "Pulling transaction history";
   if (p < 64) return "Decoding swaps and block context";
   if (p < 92) return "Testing sandwich brackets";
-  if (p < 100) return "Computing exposure metrics";
+  if (p < 100) return "Pricing the exposure";
   return "Report ready";
 }
 
@@ -48,6 +48,7 @@ export function ScanProgress({
   const clamped = Math.max(0, Math.min(100, progress));
   const displayStatus = status ?? deriveStatus(clamped);
   const hasThreats = sandwichesFound > 0;
+  const accent = hasThreats ? "var(--threat-red)" : "var(--accent)";
 
   const startedAt = useRef<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -62,98 +63,60 @@ export function ScanProgress({
     return () => window.clearInterval(id);
   }, [clamped]);
 
-  const activeStage = useMemo(() => {
-    return [...STAGES].reverse().find((s) => clamped >= s.threshold) ?? STAGES[0]!;
-  }, [clamped]);
+  const activeStage = useMemo(
+    () => [...STAGES].reverse().find((s) => clamped >= s.threshold) ?? STAGES[0]!,
+    [clamped],
+  );
 
   return (
-    <section
-      className={cn("w-full", className)}
-      style={{
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border-subtle)",
-        borderRadius: "var(--radius-panel)",
-        overflow: "hidden",
-      }}
-    >
-      <header
-        className="flex flex-wrap items-center justify-between gap-3"
-        style={{
-          padding: "14px 16px",
-          borderBottom: "1px solid var(--border-subtle)",
-          fontFamily: "var(--font-mono)",
-        }}
-      >
-        <div className="flex min-w-0 items-center gap-3">
-          <span
-            className={`gt-scan-pulse-dot ${hasThreats ? "" : "brand"}`}
-            aria-hidden
-          />
+    <section className={cn("panel", className)} style={{ overflow: "hidden" }}>
+      <div className="panel-hd" style={{ fontFamily: "var(--font-mono)" }}>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className={hasThreats ? "dot dot-threat" : "dot dot-live"} />
           <span
             style={{
-              color: hasThreats ? "var(--threat-red)" : "var(--accent)",
+              color: accent,
               fontSize: 11,
-              letterSpacing: "0.15em",
+              letterSpacing: "0.12em",
               textTransform: "uppercase",
             }}
           >
-            Live forensic scan
+            Live scan
           </span>
-          <span
-            className="truncate"
-            style={{
-              color: "var(--text-secondary)",
-              fontSize: 12,
-            }}
-          >
+          <span className="truncate" style={{ color: "var(--text-tertiary)", fontSize: 12 }}>
             {walletAddress}
           </span>
         </div>
-        <span
-          style={{
-            color: "var(--text-tertiary)",
-            fontSize: 11,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
+        <span className="tnum" style={{ color: "var(--text-tertiary)", fontSize: 11 }}>
           T+{formatElapsed(elapsed)}
         </span>
-      </header>
+      </div>
 
-      <div style={{ padding: 20 }}>
-        <div
-          className="grid gap-3 sm:grid-cols-[1fr_auto]"
-          style={{
-            alignItems: "end",
-          }}
-        >
+      <div className="panel-bd">
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]" style={{ alignItems: "end" }}>
           <div>
             <p className="text-label">Current operation</p>
             <p
-              className="mt-2"
               style={{
+                marginTop: 8,
                 fontFamily: "var(--font-mono)",
-                fontSize: 18,
+                fontSize: 16,
                 color: "var(--text-primary)",
               }}
             >
-              <span style={{ color: "var(--accent-strong)" }}>&gt;</span>{" "}
-              {displayStatus}
-              <span className="gt-scan-dots" aria-hidden>
-                <span>.</span>
-                <span>.</span>
-                <span>.</span>
-              </span>
+              <span style={{ color: accent }}>&gt;</span> {displayStatus}
+              {clamped < 100 ? (
+                <span className="gt-scan-dots" aria-hidden>
+                  <span>.</span>
+                  <span>.</span>
+                  <span>.</span>
+                </span>
+              ) : null}
             </p>
           </div>
           <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 42,
-              lineHeight: 1,
-              color: hasThreats ? "var(--threat-red)" : "var(--text-primary)",
-              fontVariantNumeric: "tabular-nums",
-            }}
+            className="tnum"
+            style={{ fontFamily: "var(--font-mono)", fontSize: 40, lineHeight: 1, color: accent }}
           >
             {Math.round(clamped)}%
           </div>
@@ -162,35 +125,26 @@ export function ScanProgress({
         <div
           style={{
             position: "relative",
-            height: 8,
+            height: 6,
             background: "var(--bg-field)",
-            border: "1px solid var(--border-subtle)",
             borderRadius: 999,
             overflow: "hidden",
             marginTop: 18,
           }}
         >
           <div
-            className="gt-scan-shimmer"
             style={{
               position: "absolute",
               inset: 0,
               width: `${clamped}%`,
-              background: hasThreats
-                ? "linear-gradient(90deg, var(--threat-amber), var(--threat-red))"
-                : "linear-gradient(90deg, var(--accent), var(--accent-strong))",
+              background: accent,
+              borderRadius: 999,
               transition: "width var(--duration-slow) var(--ease-out)",
             }}
           />
         </div>
 
-        <div
-          className="mt-6 grid gap-2 sm:grid-cols-5"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-          }}
-        >
+        <div className="mt-6 flex flex-wrap gap-1.5">
           {STAGES.map((stage) => {
             const state =
               clamped >= stage.threshold
@@ -199,49 +153,38 @@ export function ScanProgress({
                   : "done"
                 : "pending";
             return (
-              <div
+              <span
                 key={stage.key}
+                className="chip"
                 style={{
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "var(--radius-chip)",
-                  padding: "8px 10px",
-                  background:
-                    state === "active"
-                      ? "var(--bg-overlay)"
-                      : "var(--bg-field)",
+                  borderColor: state === "active" ? accent : "var(--border-subtle)",
                   color:
                     state === "active"
-                      ? hasThreats
-                        ? "var(--threat-red)"
-                        : "var(--accent-strong)"
+                      ? accent
                       : state === "done"
                         ? "var(--text-secondary)"
                         : "var(--text-muted)",
-                  textTransform: "uppercase",
+                  background: state === "active" ? "var(--bg-overlay)" : "transparent",
                 }}
               >
                 {stage.label}
-              </div>
+              </span>
             );
           })}
         </div>
 
         <div
-          className="mt-6 grid grid-cols-2 gap-px sm:grid-cols-4"
+          className="mt-6 grid grid-cols-2 sm:grid-cols-4"
           style={{
             background: "var(--border-subtle)",
             border: "1px solid var(--border-subtle)",
             borderRadius: "var(--radius-panel)",
             overflow: "hidden",
+            gap: 1,
           }}
         >
           <StatTile label="Transactions">
-            <MonoNumber
-              value={transactionsAnalyzed}
-              decimals={0}
-              animated
-              durationMs={600}
-            />
+            <MonoNumber value={transactionsAnalyzed} decimals={0} animated durationMs={600} />
           </StatTile>
           <StatTile label="Detections" threat={hasThreats}>
             <MonoNumber
@@ -253,9 +196,7 @@ export function ScanProgress({
             />
           </StatTile>
           <StatTile label="Elapsed">
-            <span style={{ fontVariantNumeric: "tabular-nums" }}>
-              {formatElapsed(elapsed)}
-            </span>
+            <span className="tnum">{formatElapsed(elapsed)}</span>
           </StatTile>
           <StatTile label="Stage">{activeStage.label}</StatTile>
         </div>
@@ -274,41 +215,21 @@ function StatTile({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      style={{
-        background: "var(--bg-surface)",
-        padding: "14px 16px",
-        position: "relative",
-        minHeight: 86,
-      }}
-    >
+    <div style={{ background: "var(--bg-surface)", padding: "14px 16px", minHeight: 82 }}>
       <p className="text-label" style={{ marginBottom: 8 }}>
         {label}
       </p>
       <p
+        className="tnum"
         style={{
           fontFamily: "var(--font-mono)",
           fontSize: 22,
           fontWeight: 500,
           color: threat ? "var(--threat-red)" : "var(--text-primary)",
-          fontVariantNumeric: "tabular-nums",
         }}
       >
         {children}
       </p>
-      {threat ? (
-        <span
-          aria-hidden
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            bottom: 0,
-            width: 2,
-            background: "var(--threat-red)",
-          }}
-        />
-      ) : null}
     </div>
   );
 }
