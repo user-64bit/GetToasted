@@ -1,45 +1,39 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter_Tight, JetBrains_Mono } from "next/font/google";
+import { Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { WalletProvider } from "./_components/wallet-provider";
 import { QueryProvider } from "./_components/query-provider";
 
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-display",
-  display: "swap",
-  axes: ["opsz", "SOFT"],
-});
-
 const interTight = Inter_Tight({
   subsets: ["latin"],
-  variable: "--font-body",
+  variable: "--font-inter-tight",
   display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-mono",
+  variable: "--font-jetbrains",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "GetToasted — Every sandwich attack on your wallet. Exposed.",
+  title: "GetToasted — See every sandwich attack on your Solana wallet",
   description:
-    "GetToasted scans Solana wallets for sandwich attacks and quantifies USD losses. Find out what was extracted from you.",
+    "GetToasted reconstructs the sandwich attacks run against your Solana wallet and prices what MEV bots extracted from you, down to the cent.",
   metadataBase: new URL("https://gettoasted.fun"),
   openGraph: {
-    title: "GetToasted",
+    title: "GetToasted — the forensic record of what MEV took from you",
     description:
-      "Every sandwich attack on your wallet. Exposed. Solana MEV extraction has cost traders $500M+.",
+      "Paste a Solana wallet. GetToasted reconstructs every sandwich attack — attacker, validator, pool, and the exact USD extracted.",
     url: "https://gettoasted.fun",
     siteName: "GetToasted",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "GetToasted",
-    description: "Every sandwich attack on your wallet. Exposed.",
+    title: "GetToasted — see every sandwich attack on your wallet",
+    description:
+      "A forensic scan of your Solana wallet. Every sandwich attack, reconstructed and priced.",
   },
 };
 
@@ -51,7 +45,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${interTight.variable} ${jetbrainsMono.variable}`}
+      className={`${interTight.variable} ${jetbrainsMono.variable}`}
     >
       <body>
         <QueryProvider>
