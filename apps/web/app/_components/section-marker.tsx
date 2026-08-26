@@ -10,7 +10,7 @@ export function SectionMarker({ num, label, children }: SectionMarkerProps) {
   return (
     <div className="section-marker">
       <div className="section-num">
-        § {num} / {label}
+        {num} <span style={{ color: "var(--text-muted)" }}>/</span> {label}
       </div>
       <h2 className="section-head text-section">{children}</h2>
     </div>

@@ -9,14 +9,7 @@ export function truncateAddress(address: string, head = 6, tail = 4): string {
   return `${address.slice(0, head)}...${address.slice(-tail)}`;
 }
 
-export function formatUsd(value: number, decimals = 2): string {
-  return value.toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
-// cubic-bezier(0.16, 1, 0.3, 1) — the spec's preferred easing curve, approximated as ease-out-quint
+// cubic-bezier easing approximated as ease-out-quint — used by MonoNumber.
 export function easeOutQuint(t: number): number {
   return 1 - Math.pow(1 - t, 5);
 }

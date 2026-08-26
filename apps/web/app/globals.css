@@ -573,27 +573,6 @@ input, textarea, select { font: inherit; color: inherit; background: none; borde
 .nav-link:hover { color: var(--text-primary); }
 
 /* ======================================================================
-   Legacy button/input aliases (kept until every call-site migrates)
-   ====================================================================== */
-.gt-btn { transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out); }
-.gt-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.gt-btn-primary {
-  background: var(--accent); color: var(--accent-ink);
-  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-  letter-spacing: 0.02em; padding: 11px 18px; border-radius: var(--radius-control);
-}
-.gt-btn-primary:hover { background: var(--accent-strong); }
-.gt-btn-secondary {
-  background: transparent; color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.01em;
-  padding: 10px 16px; border-radius: var(--radius-control);
-  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
-}
-.gt-btn-secondary:hover { background: var(--bg-elevated); border-color: var(--border-strong); }
-.gt-input:focus, .gt-input:focus-visible { border-color: var(--border-strong); outline: none; }
-
-/* ======================================================================
    Motion — a lean budget
    ====================================================================== */
 @keyframes pulse-ring {
@@ -604,15 +583,6 @@ input, textarea, select { font: inherit; color: inherit; background: none; borde
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--threat-red) 55%, transparent); }
   70%, 100% { box-shadow: 0 0 0 6px transparent; }
 }
-@keyframes threat-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
-}
-@keyframes brand-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
-}
-@keyframes terminal-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
 @keyframes card-flash { 0% { background-color: var(--threat-red-dim); } 100% { background-color: var(--bg-surface); } }
 @keyframes slide-in-right { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes badge-fade-out { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
@@ -621,18 +591,13 @@ input, textarea, select { font: inherit; color: inherit; background: none; borde
 .gt-slide-in-right { animation: slide-in-right 220ms var(--ease-out); }
 .gt-badge-fade { animation: badge-fade-out 3s var(--ease-out) forwards; }
 
-/* Scan progress accents (retained until the scanning view is reskinned) */
-@keyframes gt-scan-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-.gt-scan-pulse-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--threat-red); animation: gt-scan-pulse 1.6s var(--ease-out) infinite; flex-shrink: 0; }
-.gt-scan-pulse-dot.brand { background: var(--accent); }
+/* Active-scan feedback: a moving highlight (working) and animated dots */
 @keyframes gt-scan-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 .gt-scan-shimmer::before {
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
   animation: gt-scan-shimmer 1.8s var(--ease-in-out) infinite;
 }
-@keyframes gt-stage-pulse { 0%, 100% { box-shadow: inset 0 0 0 1px var(--accent); } 50% { box-shadow: inset 0 0 0 1px transparent; } }
-.gt-stage-active { animation: gt-stage-pulse 1.6s var(--ease-out) infinite; }
 .gt-scan-dots { display: inline-flex; gap: 1px; color: var(--accent); }
 @keyframes gt-scan-dots { 0%, 20% { opacity: 0; } 50% { opacity: 1; } 80%, 100% { opacity: 0; } }
 .gt-scan-dots > span { animation: gt-scan-dots 1.4s var(--ease-in-out) infinite; }

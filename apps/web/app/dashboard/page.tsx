@@ -33,28 +33,23 @@ function NoWallet() {
   return (
     <>
       <CommandBar />
-      <main className="px-5 py-12 md:px-10 md:py-20">
-        <div className="mx-auto" style={{ maxWidth: 720 }}>
-          <p className="text-kicker" style={{ marginBottom: 16 }}>
-            § DASHBOARD / NO WALLET
+      <main className="py-12 md:py-20">
+        <div className="wrap" style={{ maxWidth: 720 }}>
+          <p className="text-kicker" style={{ marginBottom: 14 }}>
+            Dashboard
           </p>
-          <h1
-            className="text-h1"
-            style={{ color: "var(--text-primary)", marginBottom: 12 }}
-          >
-            No wallet in <em>the URL.</em>
+          <h1 className="text-h1" style={{ color: "var(--text-primary)", marginBottom: 12 }}>
+            No wallet in the URL yet.
           </h1>
-          <p
-            className="text-body-sm"
-            style={{ marginBottom: 32, maxWidth: 560 }}
-          >
-            Paste a Solana address below to start a forensic scan. The scan is
-            read-only — no transaction is signed.
+          <p className="text-body-sm" style={{ marginBottom: 28, maxWidth: 560 }}>
+            Paste a Solana address to start a forensic scan. It runs read-only —
+            no transaction is signed.
           </p>
           <ScanInputPanel
-            label="Begin scan"
+            label="Scan a wallet"
             title="Paste a wallet."
-            helper="Output: attacker, validator, pool, confidence, USD extracted — per detection."
+            helper="Output per detection: attacker, validator, pool, confidence, and the exact USD extracted."
+            ctaLabel="Run scan"
           />
         </div>
       </main>

@@ -7,7 +7,6 @@ export interface DashboardData {
   attacksFound: number;
   worstAttacker: { address: string; name: string; count: number } | null;
   riskLevel: ThreatLevel;
-  series: { month: string; loss: number }[];
   transactionsAnalyzed: number;
   referenceNow: number;
   lastScanAt: string | null;
@@ -98,9 +97,6 @@ export function buildDashboardData(
   else riskLevel = "low";
 
   const referenceNow = Date.now();
-  const anchor = new Date(referenceNow);
-  anchor.setHours(0, 0, 0, 0);
-  const series = buildMonthlySeries(sandwiches, 12, anchor);
 
   return {
     sandwiches,
@@ -108,51 +104,8 @@ export function buildDashboardData(
     attacksFound,
     worstAttacker,
     riskLevel,
-    series,
     transactionsAnalyzed,
     referenceNow,
     lastScanAt: summary.lastScanAt ?? null,
   };
-}
-
-function buildMonthlySeries(
-  sandwiches: Sandwich[],
-  months: number,
-  anchor: Date,
-): { month: string; loss: number }[] {
-  const buckets: { key: string; month: string; loss: number }[] = [];
-  for (let i = months - 1; i >= 0; i--) {
-    const d = new Date(anchor);
-    d.setMonth(d.getMonth() - i);
-    buckets.push({
-      key: `${d.getFullYear()}-${d.getMonth()}`,
-      month: d.toLocaleDateString("en-US", { month: "short" }),
-      loss: 0,
-    });
-  }
-  const byKey = new Map(buckets.map((b) => [b.key, b]));
-
-  for (const s of sandwiches) {
-    const d = new Date(s.detectedAt);
-    const key = `${d.getFullYear()}-${d.getMonth()}`;
-    const bucket = byKey.get(key);
-    if (bucket) bucket.loss += s.lossUsd ?? 0;
-  }
-
-  // Trim leading zero-buckets so the chart isn't 11 empty months for a
-  // wallet that started getting hit recently. Keep at least 4 buckets so
-  // the line has shape — a single point against a flat axis reads as a
-  // bug. If nothing has loss at all, fall back to a 4-bucket window so
-  // the empty-state rendering still has axes to lay out.
-  const minWindow = 4;
-  const firstNonZero = buckets.findIndex((b) => b.loss > 0);
-  const start =
-    firstNonZero === -1
-      ? Math.max(0, buckets.length - minWindow)
-      : Math.min(firstNonZero, buckets.length - minWindow);
-
-  return buckets.slice(start).map((b) => ({
-    month: b.month,
-    loss: Math.round(b.loss * 100) / 100,
-  }));
 }

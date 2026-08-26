@@ -64,9 +64,7 @@ export function DashboardClient({ wallet }: DashboardClientProps) {
   }
 
   if (summaryQ.isError) {
-    return (
-      <ScanFailed wallet={wallet} reason={errorMessage(summaryQ.error)} />
-    );
+    return <ScanFailed wallet={wallet} reason={errorMessage(summaryQ.error)} />;
   }
 
   const displayStatus = summaryQ.data?.scanStatus ?? "unknown";
@@ -81,19 +79,14 @@ export function DashboardClient({ wallet }: DashboardClientProps) {
 
   if (displayStatus === "failed") {
     return (
-      <ScanFailed
-        wallet={wallet}
-        reason={summaryQ.data?.scanError ?? "Unknown scan failure"}
-      />
+      <ScanFailed wallet={wallet} reason={summaryQ.data?.scanError ?? "Unknown scan failure"} />
     );
   }
 
   // Surface sandwiches-query errors instead of letting them fall through
   // to the perpetual "Loading attacks…" placeholder.
   if (sandwichesQ.isError) {
-    return (
-      <ScanFailed wallet={wallet} reason={errorMessage(sandwichesQ.error)} />
-    );
+    return <ScanFailed wallet={wallet} reason={errorMessage(sandwichesQ.error)} />;
   }
 
   if (!data) {
@@ -106,148 +99,98 @@ export function DashboardClient({ wallet }: DashboardClientProps) {
 function ScanFailed({ wallet, reason }: { wallet: string; reason: string }) {
   const startScan = useStartScan(wallet);
   const truncated =
-    wallet.length > 10 ? `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : wallet;
+    wallet.length > 10 ? `${wallet.slice(0, 4)}…${wallet.slice(-4)}` : wallet;
 
   // Surface upstream rate-limiting in plainer language so the user knows
   // it's not a bug in their wallet — the API hit a quota.
   const isRateLimit = /rate limit|max usage|429/i.test(reason);
-  const headline = isRateLimit
-    ? "Scan blocked: API quota exhausted."
-    : "Scan failed.";
+  const headline = isRateLimit ? "Scan blocked — API quota exhausted" : "Scan failed";
   const detail = isRateLimit
     ? "The on-chain data provider (Helius) is at its monthly quota. Retry once it resets, or upgrade the API plan."
     : reason;
 
   return (
     <>
-      <DashboardTopbar wallet={wallet} />
-      <main className="px-5 py-12 md:px-10 md:py-16">
-        <section
-          className="mx-auto"
-          style={{
-            maxWidth: 560,
-            background: "var(--bg-surface)",
-            border: "1px solid var(--threat-red-border)",
-            borderRadius: "var(--radius-panel)",
-            overflow: "hidden",
-          }}
-        >
-          <header
-            style={{
-              padding: "14px 18px",
-              borderBottom: "1px solid var(--threat-red-border)",
-              background: "var(--threat-red-dim)",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}
+      <DashboardTopbar wallet={wallet} tone="threat" />
+      <main className="py-12 md:py-16">
+        <div className="wrap">
+          <section
+            className="panel mx-auto"
+            style={{ maxWidth: 560, borderColor: "var(--threat-red-border)", overflow: "hidden" }}
           >
-            <span
-              aria-hidden
-              className="inline-block rounded-full"
+            <div
+              className="flex items-center gap-2.5"
               style={{
-                width: 8,
-                height: 8,
-                background: "var(--threat-red)",
-                animation: "threat-pulse 2s infinite",
-              }}
-            />
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                color: "var(--threat-red)",
-                textTransform: "uppercase",
-                letterSpacing: 0,
+                padding: "13px 18px",
+                borderBottom: "1px solid var(--threat-red-border)",
+                background: "var(--threat-red-dim)",
               }}
             >
-              Scan error · {truncated}
-            </span>
-          </header>
-
-          <div style={{ padding: 24 }}>
-            <h1
-              className="text-h1"
-              style={{ color: "var(--text-primary)" }}
-            >
-              {headline}
-            </h1>
-            <p
-              className="text-body-sm"
-              style={{ marginTop: 14 }}
-            >
-              {detail}
-            </p>
-            {!isRateLimit && (
-              <pre
-                className="mt-4"
+              <span className="dot dot-threat" />
+              <span
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
-                  color: "var(--text-tertiary)",
-                  background: "var(--bg-field)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: 4,
-                  padding: 10,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  margin: 0,
+                  color: "var(--threat-red)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
                 }}
               >
-                {reason}
-              </pre>
-            )}
-
-            <div className="mt-6 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => startScan.mutate()}
-                disabled={startScan.isPending}
-                className="gt-btn"
-                style={{
-                  background: "var(--accent)",
-                  color: "var(--text-inverse)",
-                  padding: "10px 16px",
-                  borderRadius: 6,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  letterSpacing: 0,
-                }}
-              >
-                {startScan.isPending ? "Queuing…" : "Retry scan →"}
-              </button>
-              <Link
-                href="/"
-                className="gt-btn-secondary"
-                style={{
-                  border: "1px solid var(--border-default)",
-                  borderRadius: 6,
-                  padding: "10px 14px",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 13,
-                  color: "var(--text-secondary)",
-                  letterSpacing: 0,
-                }}
-              >
-                Different wallet
-              </Link>
+                Scan error · {truncated}
+              </span>
             </div>
 
-            {startScan.isError && (
-              <p
-                className="mt-4"
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  color: "var(--threat-red)",
-                }}
-              >
-                {errorMessage(startScan.error)}
+            <div className="panel-bd">
+              <h1 className="text-h2" style={{ color: "var(--text-primary)" }}>
+                {headline}
+              </h1>
+              <p className="text-body-sm" style={{ marginTop: 12 }}>
+                {detail}
               </p>
-            )}
-          </div>
-        </section>
+              {!isRateLimit ? (
+                <pre
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--text-tertiary)",
+                    background: "var(--bg-field)",
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: "var(--radius-control)",
+                    padding: 11,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    margin: "16px 0 0",
+                  }}
+                >
+                  {reason}
+                </pre>
+              ) : null}
+
+              <div className="mt-6 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => startScan.mutate()}
+                  disabled={startScan.isPending}
+                  className="btn btn-accent"
+                >
+                  {startScan.isPending ? "Queuing…" : "Retry scan →"}
+                </button>
+                <Link href="/" className="btn btn-outline">
+                  Different wallet
+                </Link>
+              </div>
+
+              {startScan.isError ? (
+                <p
+                  className="mt-4"
+                  style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--threat-red)" }}
+                >
+                  {errorMessage(startScan.error)}
+                </p>
+              ) : null}
+            </div>
+          </section>
+        </div>
       </main>
     </>
   );
@@ -273,33 +216,22 @@ function NoScanYet({ wallet }: { wallet: string }) {
   // queued view; the summary query will flip to scanning/complete on
   // its next 2s poll.
   if (startScan.isError && !isScanLockHeld(startScan.error)) {
-    return (
-      <ScanFailed wallet={wallet} reason={errorMessage(startScan.error)} />
-    );
+    return <ScanFailed wallet={wallet} reason={errorMessage(startScan.error)} />;
   }
 
   return (
     <>
       <DashboardTopbar wallet={wallet} />
-      <main className="px-5 py-12 md:px-10 md:py-16">
-        <div className="mx-auto" style={{ maxWidth: 720 }}>
-          <p
-            className="text-kicker"
-            style={{ marginBottom: 16, color: "var(--accent)" }}
-          >
-            § DASHBOARD / QUEUED
+      <main className="py-12 md:py-16">
+        <div className="wrap" style={{ maxWidth: 720 }}>
+          <p className="text-kicker" style={{ marginBottom: 14 }}>
+            Forensic scan · queued
           </p>
-          <h1
-            className="text-h1"
-            style={{ color: "var(--text-primary)", marginBottom: 12 }}
-          >
-            Booting <em>forensic scan…</em>
+          <h1 className="text-h1" style={{ color: "var(--text-primary)", marginBottom: 12 }}>
+            Booting the scan…
           </h1>
-          <p
-            className="text-body-sm"
-            style={{ maxWidth: 560 }}
-          >
-            Allocating a worker on the queue. The first batch lands in a few
+          <p className="text-body-sm" style={{ maxWidth: 560 }}>
+            Allocating a worker on the queue. The first batch lands within a few
             seconds.
           </p>
           <div className="mt-8">
@@ -315,55 +247,34 @@ const STAGE_LABELS = ["Queue", "Fetch", "Decode", "Detect", "Score"] as const;
 
 function StageRailTeaser() {
   return (
-    <div
-      style={{
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border-subtle)",
-        borderRadius: "var(--radius-panel)",
-        padding: 18,
-      }}
-    >
+    <div className="panel panel-bd">
       <div className="flex items-center gap-2 mb-3">
-        <span className="gt-scan-pulse-dot brand" aria-hidden />
+        <span className="dot dot-live" />
         <span
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: 11,
             color: "var(--accent)",
             textTransform: "uppercase",
-            letterSpacing: "0.15em",
-            fontWeight: 600,
+            letterSpacing: "0.12em",
           }}
         >
-          Waiting for worker
+          Waiting for a worker
         </span>
       </div>
-      <div
-        className="grid gap-2"
-        style={{
-          gridTemplateColumns: `repeat(${STAGE_LABELS.length}, 1fr)`,
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-        }}
-      >
+      <div className="flex flex-wrap gap-1.5">
         {STAGE_LABELS.map((label, i) => (
-          <div
+          <span
             key={label}
-            style={{
-              border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--radius-chip)",
-              padding: "8px 10px",
-              background:
-                i === 0 ? "var(--bg-overlay)" : "var(--bg-field)",
-              color:
-                i === 0 ? "var(--accent)" : "var(--text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-            }}
-            className={i === 0 ? "gt-stage-active" : undefined}
+            className="chip"
+            style={
+              i === 0
+                ? { borderColor: "var(--accent)", color: "var(--accent)", background: "var(--bg-overlay)" }
+                : { color: "var(--text-muted)" }
+            }
           >
             {label}
-          </div>
+          </span>
         ))}
       </div>
     </div>
@@ -375,7 +286,7 @@ function CenterMessage({ wallet, label }: { wallet?: string; label: string }) {
     <>
       {wallet ? <DashboardTopbar wallet={wallet} /> : null}
       <main
-        className="px-5 py-16"
+        className="wrap"
         style={{
           minHeight: wallet ? "calc(100vh - 56px)" : "100vh",
           display: "flex",
@@ -384,25 +295,16 @@ function CenterMessage({ wallet, label }: { wallet?: string; label: string }) {
         }}
       >
         <div
+          className="inline-flex items-center gap-3"
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 12,
             padding: "10px 16px",
             border: "1px solid var(--border-subtle)",
             borderRadius: 999,
             background: "var(--bg-surface)",
           }}
         >
-          <span className="gt-scan-pulse-dot" aria-hidden />
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              letterSpacing: 0,
-            }}
-          >
+          <span className="dot dot-live" />
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-secondary)" }}>
             {label}
           </span>
         </div>
