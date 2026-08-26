@@ -19,78 +19,46 @@ const DEFAULT_OUTPUT = KNOWN_MINTS[1]!; // USDC
 const SAMPLE_AMOUNT = "1";
 const SAMPLE_WALLET = "8UE2QGDJcpBp1PPjuCz3EsDtJn3wzSaPsmpVYXGRbzC7";
 
-/**
- * Verdict copy. `title` accepts inline JSX so the emotional pivot word
- * can render as Fraunces italic — the editorial inflection inside the
- * tool register. The body stays in body sans, the label stays mono.
- */
+type Tone = "safe" | "amber" | "threat" | "muted";
+
 const VERDICT: Record<
   SimulateVerdict | "IDLE" | "LOADING" | "ERROR",
-  {
-    label: string;
-    title: React.ReactNode;
-    body: string;
-    tone: "safe" | "amber" | "threat" | "muted";
-  }
+  { label: string; title: React.ReactNode; body: string; tone: Tone }
 > = {
   IDLE: {
     label: "Awaiting quote",
-    title: (
-      <>
-        Enter a route to <em>classify</em> risk.
-      </>
-    ),
-    body: "The verdict will update after Jupiter returns a pool route and GetToasted checks recent sandwich activity.",
+    title: <>Enter a route to <em>classify</em> the risk.</>,
+    body: "The verdict updates once Jupiter returns a pool route and GetToasted checks recent sandwich activity.",
     tone: "muted",
   },
   LOADING: {
     label: "Simulating",
-    title: (
-      <>
-        Computing route <em>exposure.</em>
-      </>
-    ),
-    body: "Fetching quote, pool, recent detections, and estimated MEV exposure.",
+    title: <>Computing route <em>exposure.</em></>,
+    body: "Fetching the quote, pool, recent detections and estimated MEV exposure.",
     tone: "amber",
   },
   ERROR: {
     label: "Quote failed",
-    title: (
-      <>
-        The route could not be <em>simulated.</em>
-      </>
-    ),
-    body: "Check the wallet, mint addresses, and amount, then try again.",
+    title: <>The route could not be <em>simulated.</em></>,
+    body: "Check the wallet, mint addresses and amount, then try again.",
     tone: "threat",
   },
   PROCEED: {
     label: "Proceed",
-    title: (
-      <>
-        Pool is <em>quiet.</em>
-      </>
-    ),
-    body: "The route has no detected sandwiches in the 7-day pool window. Still review slippage before signing.",
+    title: <>The pool is <em>quiet.</em></>,
+    body: "No sandwiches detected in this pool's 7-day window. Still review slippage before signing.",
     tone: "safe",
   },
   PROCEED_WITH_CAUTION: {
     label: "Caution",
-    title: (
-      <>
-        Some sandwich <em>history</em> exists.
-      </>
-    ),
-    body: "The pool has recent detections or measurable route impact. Consider splitting size or tightening execution.",
+    title: <>Some sandwich <em>history</em> here.</>,
+    body: "The pool has recent detections or measurable route impact. Consider splitting the size or tightening execution.",
     tone: "amber",
   },
   USE_MEV_PROTECTED_ROUTE: {
-    label: "Use protected route",
-    title: (
-      <>
-        This route is <em>exposed.</em>
-      </>
-    ),
-    body: "Recent pool activity and trade size cross the risk threshold. Use protected execution or split the order.",
+    label: "Use a protected route",
+    title: <>This route is <em>exposed.</em></>,
+    body: "Recent pool activity and trade size cross the risk threshold. Route through MEV-protected execution or split the order.",
     tone: "threat",
   },
 };
@@ -145,51 +113,35 @@ export function SimulatorClient() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)] lg:items-stretch">
-      <section
-        style={{
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: "var(--radius-panel)",
-          height: "100%",
-          overflow: "hidden",
-        }}
-      >
-        <header
-          className="flex items-center justify-between gap-3"
-          style={{
-            padding: "14px 16px",
-            borderBottom: "1px solid var(--border-subtle)",
-          }}
-        >
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(400px,1.1fr)] lg:items-start">
+      <section className="panel" style={{ overflow: "hidden" }}>
+        <div className="panel-hd">
           <p className="text-label">Trade input</p>
-          <button type="button" onClick={fillSample} style={miniButtonStyle}>
+          <button type="button" onClick={fillSample} className="btn btn-ghost btn-sm">
             Use demo route
           </button>
-        </header>
+        </div>
 
-        <form onSubmit={onSubmit} style={{ padding: 18 }}>
-          <Field label="Wallet" hint="Paste any Solana address. Connected wallet fills this automatically.">
+        <form onSubmit={onSubmit} className="panel-bd">
+          <Field label="Wallet" hint="Any Solana address. A connected wallet fills this automatically.">
             <input
               value={wallet}
               onChange={(e) => setWallet(e.target.value)}
-              placeholder={
-                connected && publicKey ? publicKey.toBase58() : "Solana address"
-              }
+              placeholder={connected && publicKey ? publicKey.toBase58() : "Solana address"}
               spellCheck={false}
               autoComplete="off"
-              style={inputStyle}
+              className="field-input"
             />
           </Field>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-start">
+          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-start">
             <MintField label="From" value={inputMint} onChange={setInputMint} info={inputInfo} />
             <button
               type="button"
               onClick={swap}
               aria-label="Swap input and output mints"
-              className="mt-0 sm:mt-8 gt-btn"
-              style={miniIconButtonStyle}
+              className="btn btn-outline sm:mt-7"
+              style={{ width: 38, height: 38, padding: 0 }}
             >
               ⇅
             </button>
@@ -198,12 +150,8 @@ export function SimulatorClient() {
 
           <div className="mt-4">
             <Field
-              label={`Amount${inputInfo ? ` (${inputInfo.symbol})` : ""}`}
-              hint={
-                inputInfo
-                  ? `${atomicAmount || "0"} atomic units`
-                  : "Custom mint: enter raw atomic units."
-              }
+              label={`Amount${inputInfo ? ` · ${inputInfo.symbol}` : ""}`}
+              hint={inputInfo ? `${atomicAmount || "0"} atomic units` : "Custom mint: enter raw atomic units."}
             >
               <input
                 value={humanAmount}
@@ -217,7 +165,7 @@ export function SimulatorClient() {
                 }}
                 inputMode="decimal"
                 placeholder={inputInfo ? "1.0" : "1000000000"}
-                style={inputStyle}
+                className="field-input"
               />
             </Field>
           </div>
@@ -225,34 +173,20 @@ export function SimulatorClient() {
           <button
             type="submit"
             disabled={sim.isPending || !effectiveWallet || !atomicAmount}
-            className="gt-btn mt-6"
-            style={{
-              width: "100%",
-              background: "var(--accent)",
-              color: "var(--text-inverse)",
-              border: "1px solid var(--accent)",
-              padding: "14px 18px",
-              borderRadius: 2,
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              opacity:
-                sim.isPending || !effectiveWallet || !atomicAmount ? 0.55 : 1,
-            }}
+            className="btn btn-accent btn-lg mt-6"
+            style={{ width: "100%" }}
           >
             {sim.isPending ? "Simulating route…" : "Simulate swap →"}
           </button>
 
           {!effectiveWallet ? (
-            <p className="mt-3" style={hintStyle}>
-              Wallet required before simulation.
+            <p className="field-hint" style={{ marginTop: 12 }}>
+              A wallet is required before simulation.
             </p>
           ) : null}
 
           {sim.isError ? (
-            <p className="mt-4" role="alert" style={{ ...hintStyle, color: "var(--threat-red)" }}>
+            <p className="field-hint" role="alert" style={{ marginTop: 14, color: "var(--threat-red)" }}>
               {humanError(sim.error)}
             </p>
           ) : null}
@@ -264,49 +198,12 @@ export function SimulatorClient() {
         loading={sim.isPending}
         error={sim.isError ? humanError(sim.error) : null}
         expectedOutHuman={expectedOutHuman}
+        inputMint={inputMint}
+        outputMint={outputMint}
       />
-
     </div>
   );
 }
-
-const miniButtonStyle = {
-  border: "1px solid var(--border-default)",
-  borderRadius: "var(--radius-control)",
-  padding: "7px 10px",
-  color: "var(--text-secondary)",
-  fontFamily: "var(--font-mono)",
-  fontSize: 12,
-  background: "var(--bg-overlay)",
-} as const;
-
-const miniIconButtonStyle = {
-  border: "1px solid var(--border-default)",
-  borderRadius: "var(--radius-control)",
-  width: 34,
-  height: 34,
-  color: "var(--text-secondary)",
-  fontFamily: "var(--font-mono)",
-  background: "var(--bg-overlay)",
-} as const;
-
-const inputStyle = {
-  width: "100%",
-  background: "var(--bg-field)",
-  border: "1px solid var(--border-default)",
-  borderRadius: "var(--radius-control)",
-  padding: "10px 12px",
-  fontFamily: "var(--font-mono)",
-  fontSize: 13,
-  color: "var(--text-primary)",
-} as const;
-
-const hintStyle = {
-  fontFamily: "var(--font-mono)",
-  fontSize: 11,
-  color: "var(--text-tertiary)",
-  lineHeight: 1.45,
-} as const;
 
 function Field({
   label,
@@ -319,13 +216,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-label mb-2 block">{label}</span>
+      <span className="field-label">{label}</span>
       {children}
-      {hint ? (
-        <span className="mt-1 block" style={hintStyle}>
-          {hint}
-        </span>
-      ) : null}
+      {hint ? <span className="field-hint">{hint}</span> : null}
     </label>
   );
 }
@@ -343,18 +236,13 @@ function MintField({
 }) {
   return (
     <div>
-      <Field label={label} hint={info ? `${info.symbol} / ${info.decimals} decimals` : "Custom mint"}>
+      <Field label={label} hint={info ? `${info.symbol} · ${info.decimals} decimals` : "Custom mint"}>
         <select
           value={KNOWN_MINTS.some((m) => m.mint === value) ? value : "__custom"}
           onChange={(e) => {
             if (e.target.value !== "__custom") onChange(e.target.value);
           }}
-          style={{
-            ...inputStyle,
-            appearance: "none",
-            WebkitAppearance: "none",
-            cursor: "pointer",
-          }}
+          className="field-select"
         >
           {KNOWN_MINTS.map((m) => (
             <option key={m.mint} value={m.mint}>
@@ -370,7 +258,8 @@ function MintField({
         placeholder="Mint address"
         spellCheck={false}
         autoComplete="off"
-        style={{ ...inputStyle, marginTop: 6 }}
+        className="field-input"
+        style={{ marginTop: 6 }}
       />
     </div>
   );
@@ -381,199 +270,150 @@ function VerdictPanel({
   loading,
   error,
   expectedOutHuman,
+  inputMint,
+  outputMint,
 }: {
   data?: SimulateResponse;
   loading: boolean;
   error: string | null;
   expectedOutHuman: string | null;
+  inputMint: string;
+  outputMint: string;
 }) {
-  const key = error ? "ERROR" : loading ? "LOADING" : data?.recommendation ?? "IDLE";
+  const key = error ? "ERROR" : loading ? "LOADING" : (data?.recommendation ?? "IDLE");
   const verdict = VERDICT[key];
-  const riskScore = data?.poolRiskScore ?? (key === "USE_MEV_PROTECTED_ROUTE" ? 0.82 : key === "PROCEED_WITH_CAUTION" ? 0.48 : 0);
+  const riskScore =
+    data?.poolRiskScore ??
+    (key === "USE_MEV_PROTECTED_ROUTE" ? 0.82 : key === "PROCEED_WITH_CAUTION" ? 0.48 : 0);
   const isHigh = key === "USE_MEV_PROTECTED_ROUTE";
 
   return (
     <section
-      style={{
-        background: "var(--bg-surface)",
-        border: `1px solid ${
-          verdict.tone === "threat"
-            ? "var(--threat-red-border)"
-            : verdict.tone === "amber"
-              ? "var(--threat-amber-border)"
-              : "var(--border-subtle)"
-        }`,
-        borderRadius: "var(--radius-panel)",
-        height: "100%",
-        overflow: "hidden",
-      }}
+      className="panel"
+      style={{ overflow: "hidden", borderColor: toneBorder(verdict.tone) }}
     >
-      <header
-        style={{ padding: 24, borderBottom: "1px solid var(--border-subtle)" }}
-      >
+      <header style={{ padding: 22, borderBottom: "1px solid var(--border-subtle)" }}>
         <span
+          className="chip"
           style={{
-            display: "inline-flex",
-            border: `1px solid ${toneBorder(verdict.tone)}`,
+            borderColor: toneBorder(verdict.tone),
             background: toneBg(verdict.tone),
             color: toneColor(verdict.tone),
-            borderRadius: 2,
-            padding: "5px 10px",
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            fontWeight: 600,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
           }}
         >
           {verdict.label}
         </span>
         <h2
           className="text-h1 verdict-h1"
-          style={{
-            marginTop: 18,
-            color: "var(--text-primary)",
-            // Per-verdict em color override consumed by the .verdict-h1 em
-            // selector in globals.css. Defaults to lime via the .text-h1 rule.
-            ["--em-color" as string]: toneColor(verdict.tone),
-          }}
+          style={{ marginTop: 16, color: "var(--text-primary)", ["--em-color" as string]: toneColor(verdict.tone) }}
         >
           {verdict.title}
         </h2>
-        <p
-          className="text-body-sm"
-          style={{ marginTop: 14, maxWidth: 540 }}
-        >
+        <p className="text-body-sm" style={{ marginTop: 12, maxWidth: 520 }}>
           {error ?? verdict.body}
         </p>
       </header>
 
-      <div style={{ padding: 18 }}>
+      <div className="panel-bd">
         {data ? (
-          <RiskMeter
-            score={Math.max(0, Math.min(1, riskScore ?? 0))}
-            label="Pool risk score"
-          />
+          <RiskMeter score={Math.max(0, Math.min(1, riskScore ?? 0))} label="Pool risk score" />
         ) : (
           <InertRiskMeter loading={loading} />
         )}
 
         <div
-          className="mt-6 grid gap-px sm:grid-cols-2"
+          className="mt-6 grid grid-cols-2"
           style={{
             background: "var(--border-subtle)",
             border: "1px solid var(--border-subtle)",
             borderRadius: "var(--radius-panel)",
             overflow: "hidden",
+            gap: 1,
           }}
         >
-          <Stat label="Expected out" value={expectedOutHuman ?? data?.expectedOut ?? "--"} />
-          <Stat label="Price impact" value={data ? `${data.priceImpactPct.toFixed(4)}%` : "--"} />
-          <Stat label="Sandwiches 7d" value={data?.sandwichCount7d ?? "--"} tone={data && data.sandwichCount7d > 0 ? "threat" : undefined} />
-          <Stat label="Avg loss 7d" value={data?.avgLossUsd7d ? `$${data.avgLossUsd7d}` : "--"} />
-          <Stat label="Trade size" value={data?.amountUsd !== null && data?.amountUsd !== undefined ? `$${data.amountUsd.toFixed(2)}` : "--"} />
-          <Stat label="Estimated MEV risk" value={data?.estimatedMevRiskUsd !== null && data?.estimatedMevRiskUsd !== undefined ? `$${data.estimatedMevRiskUsd.toFixed(2)}` : "--"} tone="threat" />
-          <Stat label="Pool" value={data?.pool ? truncate(data.pool) : "--"} wide />
+          <Stat label="Expected out" value={expectedOutHuman ?? data?.expectedOut ?? "—"} />
+          <Stat label="Price impact" value={data ? `${data.priceImpactPct.toFixed(4)}%` : "—"} />
+          <Stat
+            label="Sandwiches · 7d"
+            value={data?.sandwichCount7d ?? "—"}
+            tone={data && data.sandwichCount7d > 0 ? "threat" : undefined}
+          />
+          <Stat label="Avg loss · 7d" value={data?.avgLossUsd7d ? `$${data.avgLossUsd7d}` : "—"} />
+          <Stat
+            label="Trade size"
+            value={data?.amountUsd !== null && data?.amountUsd !== undefined ? `$${data.amountUsd.toFixed(2)}` : "—"}
+          />
+          <Stat
+            label="Est. MEV risk"
+            value={
+              data?.estimatedMevRiskUsd !== null && data?.estimatedMevRiskUsd !== undefined
+                ? `$${data.estimatedMevRiskUsd.toFixed(2)}`
+                : "—"
+            }
+            tone={data && (data.estimatedMevRiskUsd ?? 0) > 0 ? "threat" : undefined}
+          />
+          <Stat label="Pool" value={data?.pool ? truncate(data.pool) : "—"} wide />
         </div>
 
-        {isHigh ? <JitoCta /> : null}
+        {isHigh ? <ProtectedRouteCallout inputMint={inputMint} outputMint={outputMint} /> : null}
       </div>
     </section>
   );
 }
 
-function JitoCta() {
+/**
+ * Honest recommendation. GetToasted does not sign or send transactions, so
+ * this is a labelled external link to a MEV-protected route on Jupiter — not
+ * a button dressed up to look like it executes a trade.
+ */
+function ProtectedRouteCallout({
+  inputMint,
+  outputMint,
+}: {
+  inputMint: string;
+  outputMint: string;
+}) {
+  const href = `https://jup.ag/swap/${encodeURIComponent(inputMint)}-${encodeURIComponent(outputMint)}`;
   return (
     <div
       className="mt-6"
       style={{
-        position: "relative",
         background: "var(--bg-base)",
         border: "1px solid var(--threat-red-border)",
-        borderTop: "1px solid var(--threat-red)",
-        padding: "20px 22px 22px",
+        borderTop: "2px solid var(--threat-red)",
+        borderRadius: "var(--radius-panel)",
+        padding: "18px 20px 20px",
       }}
     >
-      <div className="flex items-center gap-3" style={{ marginBottom: 14 }}>
-        <span
-          aria-hidden
-          style={{
-            display: "inline-block",
-            width: 36,
-            height: 1,
-            background: "var(--threat-red)",
-          }}
-        />
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            fontWeight: 600,
-            color: "var(--threat-red)",
-            textTransform: "uppercase",
-            letterSpacing: "0.2em",
-          }}
-        >
-          → Recommended action
-        </span>
-      </div>
-
-      <h3
-        style={{
-          fontFamily: "var(--font-display-family)",
-          fontSize: "clamp(22px, 2.4vw, 30px)",
-          fontWeight: 400,
-          letterSpacing: "-0.02em",
-          color: "var(--text-primary)",
-          marginBottom: 16,
-          lineHeight: 1.15,
-        }}
-      >
-        Route through a{" "}
-        <em style={{ fontStyle: "italic", color: "var(--threat-red)" }}>
-          Jito-protected
-        </em>{" "}
-        relay.
-      </h3>
-
-      <button
-        type="button"
-        className="gt-btn"
-        style={{
-          width: "100%",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          background: "var(--threat-red)",
-          color: "var(--text-inverse)",
-          border: "none",
-          borderRadius: 2,
-          padding: "16px 20px",
-          fontFamily: "var(--font-mono)",
-          fontSize: 13,
-          fontWeight: 700,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-        }}
-      >
-        <span>Execute with Jito Protection</span>
-        <span aria-hidden style={{ fontSize: 16 }}>
-          →
-        </span>
-      </button>
       <p
-        className="mt-3"
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          color: "var(--text-tertiary)",
-          letterSpacing: "0.05em",
-          lineHeight: 1.5,
+          fontSize: 10,
+          fontWeight: 600,
+          color: "var(--threat-red)",
+          textTransform: "uppercase",
+          letterSpacing: "0.16em",
+          marginBottom: 12,
         }}
       >
-        Routes through a Jito-bundled relayer. Refuses to land if front-run.
-        No transaction is signed yet.
+        Recommended action
+      </p>
+      <h3 className="text-h2" style={{ color: "var(--text-primary)", marginBottom: 16 }}>
+        Route this swap with <span style={{ color: "var(--threat-red)" }}>MEV protection.</span>
+      </h3>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="btn btn-danger"
+        style={{ width: "100%", justifyContent: "space-between" }}
+      >
+        <span>Open on Jupiter · MEV-protected</span>
+        <span aria-hidden>↗</span>
+      </a>
+      <p className="field-hint" style={{ marginTop: 12 }}>
+        GetToasted never signs or sends a transaction. This opens Jupiter,
+        where you can enable protected execution and review the route yourself.
       </p>
     </div>
   );
@@ -591,22 +431,15 @@ function Stat({
   wide?: boolean;
 }) {
   return (
-    <div
-      className={wide ? "sm:col-span-2" : undefined}
-      style={{
-        background: "var(--bg-base)",
-        padding: 14,
-      }}
-    >
+    <div className={wide ? "col-span-2" : undefined} style={{ background: "var(--bg-surface)", padding: 14 }}>
       <p className="text-label">{label}</p>
       <p
-        className="mt-2"
+        className="mt-2 tnum"
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 18,
+          fontSize: 17,
           color: tone === "threat" ? "var(--threat-red)" : "var(--text-primary)",
           wordBreak: "break-all",
-          fontVariantNumeric: "tabular-nums",
         }}
       >
         {value}
@@ -620,67 +453,55 @@ function InertRiskMeter({ loading }: { loading: boolean }) {
     <div className="w-full">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-label">Pool risk score</span>
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 12,
-            color: "var(--text-tertiary)",
-            letterSpacing: 0,
-          }}
-        >
-          {loading ? "—" : "—"}
-        </span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-tertiary)" }}>—</span>
       </div>
       <div
-        className="relative rounded-full overflow-hidden"
+        className="relative overflow-hidden"
         style={{
           height: 6,
-          background: "var(--bg-elevated)",
+          borderRadius: 999,
+          background: "var(--bg-field)",
           border: "1px dashed var(--border-subtle)",
         }}
       >
-        {loading && (
+        {loading ? (
           <div
             className="gt-scan-shimmer"
             style={{
               position: "absolute",
               inset: 0,
-              background:
-                "linear-gradient(90deg, transparent, var(--accent-dim), transparent)",
-              opacity: 0.6,
+              background: "linear-gradient(90deg, transparent, var(--accent-dim), transparent)",
             }}
           />
-        )}
+        ) : null}
       </div>
     </div>
   );
 }
 
-function toneColor(tone: "safe" | "amber" | "threat" | "muted") {
+function toneColor(tone: Tone) {
   if (tone === "safe") return "var(--safe-green)";
   if (tone === "amber") return "var(--threat-amber)";
   if (tone === "threat") return "var(--threat-red)";
   return "var(--text-secondary)";
 }
-
-function toneBg(tone: "safe" | "amber" | "threat" | "muted") {
+function toneBg(tone: Tone) {
   if (tone === "safe") return "var(--safe-green-dim)";
   if (tone === "amber") return "var(--threat-amber-dim)";
   if (tone === "threat") return "var(--threat-red-dim)";
   return "var(--bg-elevated)";
 }
-
-function toneBorder(tone: "safe" | "amber" | "threat" | "muted") {
+function toneBorder(tone: Tone) {
   if (tone === "safe") return "var(--safe-green-border)";
   if (tone === "amber") return "var(--threat-amber-border)";
   if (tone === "threat") return "var(--threat-red-border)";
-  return "var(--border-default)";
+  return "var(--border-subtle)";
 }
 
 function humanError(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.code === "JUPITER_UNAVAILABLE") {
-      return "Jupiter could not quote this swap. Check mint addresses, liquidity, and amount.";
+      return "Jupiter could not quote this swap. Check the mints, liquidity and amount.";
     }
     if (err.code === "SIM_TIMEOUT") {
       return "Jupiter took too long to respond. Try again.";
@@ -693,5 +514,5 @@ function humanError(err: unknown): string {
 
 function truncate(addr: string): string {
   if (addr.length <= 12) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
