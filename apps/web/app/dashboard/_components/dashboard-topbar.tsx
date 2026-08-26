@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { getApiUrl } from "../../lib/api-url";
+import { HeaderNavLink, HeaderShell } from "../../_components/header";
 
 export function DashboardTopbar({
   wallet,
@@ -14,103 +14,31 @@ export function DashboardTopbar({
   tone?: "brand" | "threat";
 }) {
   const truncated =
-    wallet.length > 10 ? `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : wallet;
-  const markColor =
-    tone === "threat" ? "var(--threat-red)" : "var(--accent)";
+    wallet.length > 10 ? `${wallet.slice(0, 4)}…${wallet.slice(-4)}` : wallet;
 
   return (
-    <header className="masthead">
-      <div
-        className="mx-auto flex items-center gap-4"
+    <HeaderShell tone={tone}>
+      <span
+        className="hidden sm:inline-flex items-center gap-2"
         style={{
-          maxWidth: 1400,
-          padding: "12px 24px",
           fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
+          fontSize: 12,
+          letterSpacing: "0.01em",
+          color: "var(--text-secondary)",
+          padding: "5px 10px",
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border-subtle)",
+          borderRadius: "var(--radius-control)",
         }}
       >
-        <Link
-          href="/"
-          className="flex items-center gap-3"
-          aria-label="GetToasted home"
-        >
-          <span
-            aria-hidden
-            className={tone === "threat" ? "gt-brand-dot threat" : "gt-brand-dot"}
-          />
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: "0.08em",
-              color: "var(--text-primary)",
-              textTransform: "uppercase",
-            }}
-          >
-            Get<span style={{ color: markColor }}>Toasted</span>
-          </span>
-        </Link>
-
-        <span
-          aria-hidden
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: "var(--text-muted)",
-          }}
-          className="hidden sm:inline"
-        >
-          /
-        </span>
-
-        <span
-          className="hidden sm:inline-flex items-center gap-2"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            letterSpacing: "0.05em",
-            color: "var(--text-secondary)",
-            padding: "4px 10px",
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 2,
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 999,
-              background: "var(--safe-green)",
-            }}
-          />
-          {truncated}
-        </span>
-
-        <div className="ml-auto flex items-center gap-1">
-          <Link
-            href="/simulator"
-            className="nav-link hidden md:inline-flex"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: "var(--text-secondary)",
-              padding: "8px 14px",
-              borderRadius: 4,
-            }}
-          >
-            Simulator
-          </Link>
-          <WalletMenu wallet={wallet} truncated={truncated} />
-        </div>
-      </div>
-    </header>
+        <span className="dot" style={{ background: "var(--safe-green)", width: 6, height: 6 }} />
+        {truncated}
+      </span>
+      <HeaderNavLink href="/simulator" className="hidden md:inline-flex">
+        Simulator
+      </HeaderNavLink>
+      <WalletMenu wallet={wallet} truncated={truncated} />
+    </HeaderShell>
   );
 }
 
@@ -141,7 +69,7 @@ function WalletMenu({
     try {
       await navigator.clipboard.writeText(wallet);
     } catch {
-      // ignore
+      // clipboard blocked
     }
     setOpen(false);
   }
@@ -169,22 +97,13 @@ function WalletMenu({
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
+      {/* Mobile: the address is the trigger. Desktop: a compact glyph. */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="gt-btn-secondary sm:hidden"
-        style={{
-          background: "var(--bg-elevated)",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 6,
-          padding: "8px 12px",
-          fontFamily: "var(--font-mono)",
-          fontSize: 12,
-          color: "var(--text-primary)",
-          letterSpacing: 0,
-        }}
+        className="btn btn-outline btn-sm sm:hidden"
       >
         {truncated}
       </button>
@@ -194,19 +113,12 @@ function WalletMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Wallet menu"
-        className="hidden sm:inline-flex items-center justify-center gt-btn-secondary"
-        style={{
-          width: 32,
-          height: 32,
-          background: "var(--bg-elevated)",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 6,
-          color: "var(--text-secondary)",
-          fontFamily: "var(--font-mono)",
-          fontSize: 14,
-        }}
+        className="hidden sm:inline-flex items-center justify-center btn btn-outline"
+        style={{ width: 34, height: 34, padding: 0, fontSize: 16 }}
       >
-        ⋯
+        <span aria-hidden style={{ lineHeight: 0, marginTop: -6 }}>
+          ⋯
+        </span>
       </button>
 
       {open && (
@@ -215,14 +127,14 @@ function WalletMenu({
           style={{
             position: "absolute",
             right: 0,
-            top: "calc(100% + 6px)",
-            minWidth: 200,
+            top: "calc(100% + 8px)",
+            minWidth: 210,
             background: "var(--bg-overlay)",
             border: "1px solid var(--border-default)",
-            borderRadius: 6,
-            padding: 4,
-            zIndex: 40,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+            borderRadius: "var(--radius-panel)",
+            padding: 5,
+            zIndex: 60,
+            boxShadow: "var(--shadow-pop)",
           }}
         >
           <MenuItem onClick={copy}>Copy address</MenuItem>
@@ -236,18 +148,8 @@ function WalletMenu({
           >
             View on Solscan ↗
           </a>
-          <div
-            style={{
-              height: 1,
-              background: "var(--border-subtle)",
-              margin: "4px 0",
-            }}
-          />
-          <MenuItem
-            onClick={disconnectAndGoHome}
-            tone="threat"
-            disabled={pending}
-          >
+          <div style={{ height: 1, background: "var(--border-subtle)", margin: "5px 0" }} />
+          <MenuItem onClick={disconnectAndGoHome} tone="threat" disabled={pending}>
             {pending ? "Disconnecting…" : "Disconnect"}
           </MenuItem>
         </div>
@@ -260,10 +162,10 @@ const menuItemStyle: React.CSSProperties = {
   display: "block",
   width: "100%",
   textAlign: "left",
-  padding: "8px 10px",
-  borderRadius: 4,
+  padding: "9px 11px",
+  borderRadius: "var(--radius-control)",
   fontFamily: "var(--font-mono)",
-  fontSize: 12,
+  fontSize: 12.5,
   color: "var(--text-primary)",
   background: "transparent",
   border: "none",
