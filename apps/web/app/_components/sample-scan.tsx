@@ -1,179 +1,151 @@
-import { AttackerAddress } from "@get-toasted/ui/attacker-address";
+import { BracketTrace } from "@get-toasted/ui/bracket-trace";
 import { DetectionLayerBadge } from "@get-toasted/ui/detection-layer-badge";
 import { LossValue } from "@get-toasted/ui/loss-value";
+import type { Sandwich } from "@get-toasted/ui/types";
 
-const rows = [
+/**
+ * A real-shaped forensic verdict, rendered with the exact production
+ * primitives — this is the product, not an illustration of it.
+ */
+const featured: Sandwich = {
+  id: "sample-1",
+  detectedAt: "2025-08-14T09:41:00Z",
+  pool: "Raydium",
+  dex: "Raydium",
+  pair: "SOL/USDC",
+  lossUsd: 142.2,
+  detectionLayer: "L1",
+  lossMethod: "cpmm-reconstruction",
+  confidence: 1.0,
+  jitoBundled: true,
+  attacker: "Ai4zqY7gjyAPhtUsGnCfabM5oHcZLt3htjpSoUKvxkkt",
+  knownBotName: "arsc-active",
+  slot: 418124934,
+  frontSig: "3nFrontRunSampleSig111111111111111111111111",
+  txSignature: "5vVictimSwapSampleSig2222222222222222222222",
+  backSig: "2xBackRunSampleSig33333333333333333333333333",
+};
+
+const others: Sandwich[] = [
   {
-    layer: "L1",
-    time: "slot 418,124,934",
-    venue: "Raydium",
-    pair: "SOL/USDC",
-    lossUsd: 142.2,
-    attacker: "ArscACTiveSandWichBoTpUbKey1111111111111111",
-    attackerLabel: "arsc-active",
-    confidence: "1.00",
-  },
-  {
-    layer: "L2",
-    time: "slot 418,119,402",
-    venue: "Orca",
+    id: "sample-2",
+    detectedAt: "2025-08-11T18:02:00Z",
+    pool: "Orca",
+    dex: "Orca",
     pair: "BONK/SOL",
     lossUsd: 83.11,
+    detectionLayer: "L2",
+    confidence: 0.95,
     attacker: "B91piBSfCBRs5rUxCMRdJEGv7tNEnFxweWcdQJHJoFpi",
-    attackerLabel: "B91",
-    confidence: "0.95",
+    knownBotName: "B91",
+    slot: 418119402,
+    txSignature: "4kVictimTwoSampleSig444444444444444444444444",
   },
   {
-    layer: "L4",
-    time: "slot 418,101,778",
-    venue: "PumpSwap",
+    id: "sample-3",
+    detectedAt: "2025-08-09T02:29:00Z",
+    pool: "PumpSwap",
+    dex: "PumpSwap",
     pair: "LONGTAIL/SOL",
-    lossUsd: 22.50,
+    lossUsd: 22.5,
+    detectionLayer: "L4",
+    confidence: 0.65,
     attacker: "3cxZai94fxXF5sQdLUhwUiVQioAxkdrQcFTJkwrsKNS8",
-    attackerLabel: null,
-    confidence: "0.65",
+    knownBotName: null,
+    slot: 418101778,
+    txSignature: "6mVictimThreeSampleSig55555555555555555555555",
   },
-] satisfies ReadonlyArray<{
-  layer: string;
-  time: string;
-  venue: string;
-  pair: string;
-  lossUsd: number;
-  attacker: string;
-  attackerLabel: string | null;
-  confidence: string;
-}>;
+];
 
 export function SampleScan() {
   return (
-    <aside
-      style={{
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border-subtle)",
-        borderRadius: "var(--radius-panel)",
-        overflow: "hidden",
-      }}
-      aria-label="Sample forensic scan"
-    >
-      <header
-        className="flex items-start justify-between gap-4"
-        style={{
-          padding: "14px 16px",
-          borderBottom: "1px solid var(--border-subtle)",
-        }}
-      >
-        <div>
-          <p className="text-label">Sample wallet report</p>
-          <p
-            className="mt-1"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 13,
-              color: "var(--text-tertiary)",
-            }}
-          >
-            9973h...zWp6
-          </p>
+    <div className="panel" style={{ overflow: "hidden" }} aria-label="Sample forensic scan">
+      <div className="panel-hd" style={{ flexWrap: "wrap", gap: 12 }}>
+        <div className="flex items-center gap-2.5">
+          <span className="dot dot-threat" />
+          <span className="text-label" style={{ color: "var(--text-secondary)" }}>
+            Report · wallet 9973h…zWp6
+          </span>
         </div>
-        <div className="text-right">
-          <p className="text-label">Total extracted</p>
-          <div className="mt-1">
-            <LossValue value={247.81} size="lg" />
-          </div>
-        </div>
-      </header>
+        <span className="chip chip-threat">Toasted · 3 attacks</span>
+      </div>
 
-      <div className="grid grid-cols-3 gap-px" style={{ background: "var(--border-subtle)" }}>
-        <Metric label="Detections" value="3" tone="threat" />
-        <Metric label="Top layer" value="L1" />
-        <Metric label="Window" value="30d" />
+      <div className="grid grid-cols-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+        <SummaryCell label="Total extracted">
+          <LossValue value={247.81} size="md" />
+        </SummaryCell>
+        <SummaryCell label="Confirmed / suspected">
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 18, color: "var(--text-primary)" }}>
+            2 / 1
+          </span>
+        </SummaryCell>
+        <SummaryCell label="Worst actor" last>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 18, color: "var(--threat-red)" }}>
+            arsc-active
+          </span>
+        </SummaryCell>
       </div>
 
       <div style={{ padding: 16 }}>
-        <p className="text-label" style={{ marginBottom: 10 }}>
-          Detection stream
+        <p className="text-label" style={{ marginBottom: 12 }}>
+          Worst attack · reconstructed
         </p>
-        <div className="flex flex-col gap-2">
-          {rows.map((row) => (
-            <article
-              key={`${row.layer}-${row.time}`}
-              style={{
-                border: "1px solid var(--border-subtle)",
-                borderLeft: `2px solid ${
-                  row.layer === "L4" ? "var(--threat-amber)" : "var(--threat-red)"
-                }`,
-                borderRadius: "var(--radius-chip)",
-                padding: 12,
-                background: "var(--bg-elevated)",
-              }}
+        <BracketTrace sandwich={featured} />
+
+        <p className="text-label" style={{ margin: "20px 0 10px" }}>
+          Two more brackets
+        </p>
+        <div
+          className="panel"
+          style={{ overflow: "hidden", background: "var(--bg-base)" }}
+        >
+          {others.map((s) => (
+            <div
+              key={s.id}
+              className="sw-row flex items-center gap-3"
+              style={{ padding: "11px 14px" }}
             >
-              <div className="flex flex-wrap items-center gap-2">
-                <DetectionLayerBadge layer={row.layer} />
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 11,
-                    color: "var(--text-tertiary)",
-                  }}
-                >
-                  {row.time} / confidence {row.confidence}
-                </span>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
-                <div>
-                  <p
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 13,
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    {row.venue} / {row.pair}
-                  </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className="text-label">Attacker</span>
-                    <AttackerAddress address={row.attacker} label={row.attackerLabel} />
-                  </div>
-                </div>
-                <LossValue value={row.lossUsd} size="sm" />
-              </div>
-            </article>
+              <DetectionLayerBadge layer={s.detectionLayer} />
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 13,
+                  color: "var(--text-primary)",
+                }}
+              >
+                {s.dex} · {s.pair}
+              </span>
+              <span className="ml-auto">
+                <LossValue value={s.lossUsd} size="sm" />
+              </span>
+            </div>
           ))}
         </div>
       </div>
-    </aside>
+    </div>
   );
 }
 
-function Metric({
+function SummaryCell({
   label,
-  value,
-  tone,
+  children,
+  last,
 }: {
   label: string;
-  value: string;
-  tone?: "threat" | "amber";
+  children: React.ReactNode;
+  last?: boolean;
 }) {
   return (
-    <div style={{ background: "var(--bg-base)", padding: "12px 14px" }}>
-      <p className="text-label" style={{ fontSize: 9 }}>
+    <div
+      style={{
+        padding: "16px 18px",
+        borderRight: last ? "none" : "1px solid var(--border-subtle)",
+      }}
+    >
+      <p className="text-label" style={{ marginBottom: 8, fontSize: 9.5 }}>
         {label}
       </p>
-      <p
-        className="mt-1"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 22,
-          color:
-            tone === "threat"
-              ? "var(--threat-red)"
-              : tone === "amber"
-                ? "var(--threat-amber)"
-                : "var(--text-primary)",
-        }}
-      >
-        {value}
-      </p>
+      {children}
     </div>
   );
 }

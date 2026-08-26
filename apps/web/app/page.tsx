@@ -1,5 +1,4 @@
 import { CommandBar } from "./_components/command-bar";
-import { PullQuote } from "./_components/pull-quote";
 import { SampleScan } from "./_components/sample-scan";
 import { ScanInputPanel } from "./_components/scan-input-panel";
 import { SectionMarker } from "./_components/section-marker";
@@ -10,9 +9,8 @@ export default function Home() {
       <CommandBar />
       <main>
         <Hero />
-        <MethodologySection />
-        <BridgeQuote />
         <SampleSection />
+        <MethodologySection />
         <RunScanSection />
         <Footer />
       </main>
@@ -20,67 +18,31 @@ export default function Home() {
   );
 }
 
+/* ============================================================ Hero */
 function Hero() {
   return (
     <section
-      style={{
-        position: "relative",
-        padding: "80px 24px 56px",
-        borderBottom: "1px solid var(--border-subtle)",
-        overflow: "hidden",
-      }}
+      style={{ padding: "72px 0 52px", borderBottom: "1px solid var(--border-subtle)" }}
     >
-      <div
-        className="mx-auto"
-        style={{ maxWidth: 1280, position: "relative", zIndex: 2 }}
-      >
-        <div
-          className="flex items-center"
-          style={{
-            gap: 16,
-            marginBottom: 28,
-            color: "var(--accent)",
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              display: "inline-block",
-              width: 48,
-              height: 1,
-              background: "var(--accent)",
-            }}
-          />
-          <span className="text-kicker">Field Guide / The Anatomy of MEV</span>
-          <span
-            style={{
-              padding: "4px 10px",
-              border: "1px solid var(--accent)",
-              borderRadius: 999,
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: "var(--accent)",
-              fontWeight: 500,
-            }}
-          >
-            Issue 01
-          </span>
+      <div className="wrap">
+        <div className="flex items-center gap-3" style={{ marginBottom: 26 }}>
+          <span aria-hidden style={{ width: 40, height: 1, background: "var(--accent)" }} />
+          <span className="text-kicker">Solana · MEV forensics</span>
         </div>
 
-        <h1 className="text-display" style={{ marginBottom: 32 }}>
+        <h1 className="text-display" style={{ marginBottom: 0 }}>
           Every sandwich attack
           <br />
-          on your wallet, <em>exposed.</em>
+          on your wallet, <em>reconstructed.</em>
         </h1>
 
         <div
           className="hero-grid-cols"
           style={{
             display: "grid",
-            gap: 64,
+            gap: 56,
             paddingTop: 40,
+            marginTop: 40,
             borderTop: "1px solid var(--border-subtle)",
             alignItems: "start",
           }}
@@ -95,40 +57,32 @@ function Hero() {
 
 function HeroLeft() {
   return (
-    <div className="hero-deck-col">
-      <p className="text-deck" style={{ maxWidth: 640 }}>
-        Three transactions, one slot, one pool. A bot pays the validator. Your
-        swap arrives in the middle &mdash;{" "}
-        <strong>squeezed between two strangers who took your money</strong>{" "}
-        before you knew you&apos;d lost it. GetToasted scans your wallet and
-        quantifies the bill.
+    <div>
+      <p className="text-deck" style={{ maxWidth: 560 }}>
+        A sandwich is three transactions in one Solana slot: a bot buys just
+        before your swap, lets you fill at the worse price, then sells right
+        after. <strong>GetToasted finds every one against your wallet — and
+        prices it to the cent.</strong>
       </p>
 
-      <dl className="hero-figures mt-10">
-        <HeroFigure label="Extracted on Solana" sub="Helius 2024 MEV report" value="$370M+" />
-        <HeroFigure label="Detection layers" sub="L1 mechanical → L4 statistical" value="4" />
-        <HeroFigure label="Ground-truth recall" sub="Jito-bundle confirmed" value="30/30" />
+      <dl className="hero-figures" style={{ marginTop: 36 }}>
+        <HeroFigure value="$370M+" label="Extracted on Solana" sub="Helius 2024 MEV report" />
+        <HeroFigure value="4" label="Detection layers" sub="mechanical → statistical" />
+        <HeroFigure value="30/30" label="Ground-truth recall" sub="Jito-bundle confirmed" />
       </dl>
     </div>
   );
 }
 
-function HeroFigure({
-  label,
-  sub,
-  value,
-}: {
-  label: string;
-  sub: string;
-  value: string;
-}) {
+function HeroFigure({ value, label, sub }: { value: string; label: string; sub: string }) {
   return (
     <div>
       <div
+        className="tnum"
         style={{
-          fontFamily: "var(--font-display-family)",
-          fontSize: "clamp(28px, 3.4vw, 40px)",
-          fontWeight: 400,
+          fontFamily: "var(--font-mono)",
+          fontSize: "clamp(26px, 3vw, 34px)",
+          fontWeight: 500,
           letterSpacing: "-0.02em",
           color: "var(--text-primary)",
           lineHeight: 1,
@@ -137,26 +91,10 @@ function HeroFigure({
       >
         {value}
       </div>
-      <p
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          color: "var(--text-secondary)",
-          letterSpacing: "0.05em",
-          textTransform: "uppercase",
-        }}
-      >
+      <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
         {label}
       </p>
-      <p
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          color: "var(--text-tertiary)",
-          letterSpacing: "0.05em",
-          marginTop: 4,
-        }}
-      >
+      <p style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-tertiary)", marginTop: 4 }}>
         {sub}
       </p>
     </div>
@@ -166,75 +104,85 @@ function HeroFigure({
 function HeroRight() {
   return (
     <ScanInputPanel
-      num="00"
-      label="Begin scan"
-      title={
-        <>
-          Paste an address.<br />
-          Read the verdict.
-        </>
-      }
-      helper={
-        <>
-          The scan is read-only. We never request a signature, never broadcast
-          a transaction, and never write to your wallet.
-        </>
-      }
+      label="Scan a wallet"
+      title="Paste an address. Read the verdict."
+      helper="Read-only. We never request a signature, never broadcast a transaction, and never touch your funds."
+      ctaLabel="Run scan"
     />
   );
 }
 
-/* ============================================================
-   § 01 — Methodology
-   ============================================================ */
+/* ============================================================ § 01 Sample */
+function SampleSection() {
+  return (
+    <section style={{ padding: "84px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+      <div className="wrap">
+        <SectionMarker num="01" label="A real verdict">
+          This is a verdict,
+          <br />
+          <em>not a guess.</em>
+        </SectionMarker>
+
+        <div className="section-prose" style={{ marginTop: 40 }}>
+          <p className="text-body">
+            Every detection carries its layer, its confidence, and the method
+            used to price the loss. You can read it without trusting the math —
+            every leg of the bracket links straight to Solscan.
+          </p>
+        </div>
+
+        <div style={{ marginTop: 40, maxWidth: 760 }}>
+          <SampleScan />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================ § 02 Method */
 function MethodologySection() {
   const layers = [
     {
-      tag: "L1",
+      tag: "L1 · Jito bundle",
       tone: "threat" as const,
-      title: "Jito-bundle membership",
-      body: "When the front and back of a sandwich land in the same Jito bundle, the bracket is mechanical, not statistical. Confidence 1.00.",
+      title: "Mechanical proof",
+      body: "When the front and back of a bracket land in the same Jito bundle, it is not a guess. Confidence 1.00.",
     },
     {
-      tag: "L2",
+      tag: "L2 · Adjacent",
       tone: "threat" as const,
-      title: "Same-pool nearest neighbors",
-      body: "Validator-direct attacks bypass Jito. We match same-pool, signer-shared, direction-reversed adjacency at ≥95% sell-through.",
+      title: "Same-pool neighbours",
+      body: "Validator-direct attacks skip Jito. We match same-pool, shared-signer, direction-reversed swaps at ≥95% sell-through.",
     },
     {
-      tag: "L3",
+      tag: "L3 · Known bot",
       tone: "amber" as const,
-      title: "Known-bot signers",
-      body: "Same-slot patterns from registered MEV signers in our bot registry. Confirmed actor, suspected attack, marked amber.",
+      title: "Registered actors",
+      body: "Same-slot patterns from signers in our MEV bot registry. Confirmed actor, suspected attack.",
     },
     {
-      tag: "L4",
+      tag: "L4 · Statistical",
       tone: "amber" as const,
-      title: "Statistical fits",
-      body: "Wide non-bundled brackets gated by five false-positive guards: layer-aware loss thresholds, slippage realism, sell-through floor.",
+      title: "Guarded inference",
+      body: "Wide non-bundled brackets, gated by five false-positive guards: sell-through floor, slippage realism, size and index proximity.",
     },
   ];
 
   return (
-    <section
-      style={{
-        padding: "96px 24px",
-        borderBottom: "1px solid var(--border-subtle)",
-      }}
-    >
-      <div className="mx-auto" style={{ maxWidth: 1280 }}>
-        <SectionMarker num="01" label="Methodology">
-          Sandwich bots don&apos;t leave one fingerprint.<br />
-          <em>Neither does this scanner.</em>
+    <section style={{ padding: "84px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+      <div className="wrap">
+        <SectionMarker num="02" label="How it reads">
+          Four layers.
+          <br />
+          <em>You can see each one.</em>
         </SectionMarker>
 
-        <div className="section-prose" style={{ marginTop: 48 }}>
-          <p className="text-body" style={{ marginBottom: 16 }}>
-            Each layer trades coverage for confidence. We surface every layer
-            separately so you can read the verdict without trusting the math.
-            L1 is mechanical: same Jito bundle, signer-bracket inverted,
-            confidence 1.00. L4 is statistical: wide same-slot pattern,
-            confirmed actor unknown, marked amber.
+        <div className="section-prose" style={{ marginTop: 40 }}>
+          <p className="text-body" style={{ marginBottom: 14 }}>
+            Each layer trades coverage for certainty, and we label which one
+            fired. L1 is mechanical — same bundle, inverted bracket. L4 is
+            statistical — a wide same-slot pattern with the actor unconfirmed.
+            You always know which you are looking at.
           </p>
           <p className="text-body-sm">
             Reproducible offline via{" "}
@@ -246,16 +194,16 @@ function MethodologySection() {
                 fontSize: "0.9em",
                 color: "var(--accent)",
                 border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-chip)",
               }}
             >
               pnpm harness validate-mined
             </code>
-            . Every detection persists its layer, confidence, and loss method —
-            no opaque scores.
+            . Every detection persists its layer, confidence and loss method.
           </p>
         </div>
 
-        <div className="layer-grid" style={{ marginTop: 48 }}>
+        <div className="layer-grid" style={{ marginTop: 40 }}>
           {layers.map((l) => (
             <LayerCard key={l.tag} {...l} />
           ))}
@@ -276,152 +224,46 @@ function LayerCard({
   title: string;
   body: string;
 }) {
-  const color =
-    tone === "threat" ? "var(--threat-red)" : "var(--threat-amber)";
+  const color = tone === "threat" ? "var(--threat-red)" : "var(--threat-amber)";
   return (
     <article
-      style={{
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border-subtle)",
-        borderLeft: `2px solid ${color}`,
-        padding: 24,
-      }}
+      className="panel"
+      style={{ borderLeft: `2px solid ${color}`, padding: 22 }}
     >
-      <div
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          color,
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          marginBottom: 12,
-          fontWeight: 600,
-        }}
-      >
-        {tag}
-      </div>
-      <h3
-        className="text-h2"
-        style={{ marginBottom: 10, color: "var(--text-primary)" }}
-      >
+      <span className={tone === "threat" ? "chip chip-threat" : "chip chip-amber"}>{tag}</span>
+      <h3 className="text-h2" style={{ margin: "14px 0 8px", color: "var(--text-primary)" }}>
         {title}
       </h3>
-      <p
-        className="text-body-sm"
-        style={{ color: "var(--text-secondary)" }}
-      >
-        {body}
-      </p>
+      <p className="text-body-sm">{body}</p>
     </article>
   );
 }
 
-/* ============================================================
-   Pull quote between § 01 and § 02
-   ============================================================ */
-function BridgeQuote() {
-  return (
-    <section
-      style={{
-        padding: "32px 24px 48px",
-        borderBottom: "1px solid var(--border-subtle)",
-      }}
-    >
-      <div className="mx-auto" style={{ maxWidth: 1280 }}>
-        <PullQuote attr="Invisible theft, made visible">
-          Your slippage isn&apos;t bad luck.{" "}
-          <span>It was engineered.</span>
-        </PullQuote>
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   § 02 — Sample scan
-   ============================================================ */
-function SampleSection() {
-  return (
-    <section
-      style={{
-        padding: "96px 24px",
-        borderBottom: "1px solid var(--border-subtle)",
-      }}
-    >
-      <div className="mx-auto" style={{ maxWidth: 1280 }}>
-        <SectionMarker num="02" label="Sample scan">
-          What a real verdict<br />
-          <em>actually looks like.</em>
-        </SectionMarker>
-
-        <div className="section-prose" style={{ marginTop: 48 }}>
-          <p className="text-body" style={{ marginBottom: 24 }}>
-            A wallet you&apos;ve never heard of, scanned in fifteen seconds. Three
-            confirmed brackets. $247.83 extracted. The attacker, validator,
-            pool, layer, and confidence — all surfaced, all traceable on
-            Solscan.
-          </p>
-        </div>
-
-        <div
-          className="report-frame"
-          style={{
-            marginTop: 48,
-            padding: "48px 32px 32px",
-          }}
-        >
-          <p
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              color: "var(--text-tertiary)",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              marginBottom: 24,
-              paddingLeft: 32,
-            }}
-          >
-            Fig. 01 ·{" "}
-            <span style={{ color: "var(--accent)", fontWeight: 500 }}>
-              The lifecycle of a forensic scan
-            </span>{" "}
-            · sample wallet · 30-day window
-          </p>
-
-          <SampleScan />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   § 03 — Run the scan
-   ============================================================ */
+/* ============================================================ § 03 Run scan */
 function RunScanSection() {
   return (
-    <section style={{ padding: "96px 24px 112px" }}>
-      <div className="mx-auto" style={{ maxWidth: 1280 }}>
+    <section style={{ padding: "84px 0 104px" }}>
+      <div className="wrap">
         <SectionMarker num="03" label="Run the scan">
-          The only useful verdict<br />
-          is the one tied to <em>your</em> wallet.
+          The only verdict that
+          <br />
+          matters is <em>yours.</em>
         </SectionMarker>
 
-        <div className="section-prose" style={{ marginTop: 48 }}>
-          <p className="text-body" style={{ marginBottom: 32 }}>
+        <div className="section-prose" style={{ marginTop: 40 }}>
+          <p className="text-body" style={{ marginBottom: 28 }}>
             Paste a Solana address. The scan runs read-only against Helius and
-            our detection pipeline; nothing is signed, nothing is broadcast,
-            nothing leaves your wallet. The first detection lands in seconds.
+            the detection pipeline — nothing is signed, nothing is broadcast.
+            The first bracket usually lands within seconds.
           </p>
         </div>
 
-        <div style={{ marginTop: 8, maxWidth: 760 }}>
+        <div className="section-prose" style={{ marginTop: 4, maxWidth: 720 }}>
           <ScanInputPanel
-            num="03"
-            label="Begin scan"
+            label="Scan a wallet"
             title="Paste a wallet."
-            helper="Read-only forensic scan. Output: attacker, validator, pool, confidence, USD extracted — per detection."
-            ctaLabel="Run scan →"
+            helper="Output per detection: attacker, validator, pool, confidence, and the exact USD extracted."
+            ctaLabel="Run scan"
           />
         </div>
       </div>
@@ -429,34 +271,23 @@ function RunScanSection() {
   );
 }
 
-/* ============================================================
-   Footer
-   ============================================================ */
+/* ============================================================ Footer */
 function Footer() {
   return (
-    <footer
-      style={{
-        padding: "48px 24px 32px",
-        background: "var(--bg-base)",
-        borderTop: "1px solid var(--border-subtle)",
-      }}
-    >
+    <footer style={{ padding: "40px 0 32px", background: "var(--bg-base)", borderTop: "1px solid var(--border-subtle)" }}>
       <div
-        className="mx-auto flex flex-wrap items-center justify-between gap-4"
+        className="wrap flex flex-wrap items-center justify-between gap-3"
         style={{
-          maxWidth: 1280,
           fontFamily: "var(--font-mono)",
           fontSize: 11,
           color: "var(--text-tertiary)",
-          letterSpacing: "0.05em",
-          textTransform: "uppercase",
+          letterSpacing: "0.04em",
         }}
       >
         <span>
-          Get<span style={{ color: "var(--accent)" }}>Toasted</span> · Field
-          Guide / Vol.01
+          Get<span style={{ color: "var(--accent)" }}>Toasted</span> · Solana MEV forensics
         </span>
-        <span>Built for Solana mainnet-beta · 2026</span>
+        <span>Read-only · mainnet-beta · 2026</span>
       </div>
     </footer>
   );
