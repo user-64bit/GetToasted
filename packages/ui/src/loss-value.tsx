@@ -2,6 +2,11 @@
 
 import { MonoNumber } from "./mono-number";
 
+/**
+ * A loss is evidence, not a headline. It always renders in tabular mono so
+ * columns align and the figure reads as an instrument readout. `size` only
+ * scales it; it never switches to a display serif.
+ */
 export function LossValue({
   value,
   outputAmount,
@@ -13,17 +18,9 @@ export function LossValue({
   animated?: boolean;
   size?: "sm" | "md" | "lg" | "xl";
 }) {
-  const fontSize = size === "xl" ? 56 : size === "lg" ? 32 : size === "sm" ? 13 : 18;
-  // Editorial register: emotionally weighted USD callouts use Fraunces. Tool
-  // register (sm/md inside tables, cards) stays mono so tabular columns line
-  // up. lg/xl are the "loss as a punch" sizes — landing sample scan + the
-  // dashboard's hero number.
-  const isDisplay = size === "lg" || size === "xl";
-  const family = isDisplay
-    ? "var(--font-display-family)"
-    : "var(--font-mono)";
-  const fontWeight = isDisplay ? 400 : 500;
-  const letterSpacing = isDisplay ? "-0.02em" : "0";
+  const fontSize = size === "xl" ? 52 : size === "lg" ? 30 : size === "sm" ? 13 : 18;
+  const fontWeight = size === "lg" || size === "xl" ? 500 : 500;
+  const letterSpacing = size === "lg" || size === "xl" ? "-0.02em" : "0";
 
   if (typeof value === "number" && Number.isFinite(value)) {
     return (
@@ -33,7 +30,7 @@ export function LossValue({
           prefix="$"
           color="threat"
           animated={animated}
-          fontFamily={family}
+          fontFamily="var(--font-mono)"
           fontWeight={fontWeight}
           letterSpacing={letterSpacing}
         />
@@ -52,10 +49,10 @@ export function LossValue({
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      <span style={{ fontSize }}>USD unknown</span>
+      <span style={{ fontSize }}>unpriced</span>
       {outputAmount ? (
         <span style={{ color: "var(--text-tertiary)", fontSize: 11 }}>
-          raw loss {outputAmount}
+          {outputAmount} tokens
         </span>
       ) : null}
     </span>

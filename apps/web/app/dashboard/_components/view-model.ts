@@ -48,6 +48,17 @@ export function rowToSandwich(row: SandwichRow): Sandwich {
     validator: row.validatorVote ?? undefined,
     txSignature: row.victimSig,
     slot: Number(row.slot),
+    // Full evidence chain for the bracket reconstruction
+    frontSig: row.frontSig,
+    backSig: row.backSig,
+    dex: row.dex,
+    poolAddress: row.pool,
+    inputMint: row.inputMint,
+    outputMint: row.outputMint,
+    victimInAmt: row.victimInAmt,
+    victimOutAmt: row.victimOutAmt,
+    attackerProfitRaw: row.attackerProfitRaw,
+    jitoTipLamports: row.jitoTipLamports,
   };
 }
 

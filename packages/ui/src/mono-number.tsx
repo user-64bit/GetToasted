@@ -14,8 +14,8 @@ export interface MonoNumberProps {
   color?: MonoNumberColor;
   durationMs?: number;
   className?: string;
-  /** Override the default mono font — used by editorial-register callouts
-   * that want Fraunces serif numerals (e.g., the dashboard hero loss). */
+  /** Override the mono family in the rare case a caller needs a different
+   * typeface. Defaults to the mono voice used for all readouts. */
   fontFamily?: string;
   fontWeight?: number;
   letterSpacing?: string;
